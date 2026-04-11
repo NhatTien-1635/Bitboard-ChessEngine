@@ -24,6 +24,11 @@ int main() {
     chess_board.PopulateMoveList(move_list);
     move_list.PrintList();
 
+    chess_board.MakeQuietMove(move_list.GetMove(6));
+    chess_board.PrintBoard();
+
+    chess_board.PopulateMoveList(move_list);
+    move_list.PrintList();
 
     return 0;
 }

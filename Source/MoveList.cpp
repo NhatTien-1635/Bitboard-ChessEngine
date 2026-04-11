@@ -5,13 +5,26 @@
 #include "../Header/MoveList.h"
 
 void MoveList::PrintList() {
-    std::cout << "Move" << std::setw(15) << " Piece" << std::setw(15) << "Promotion" << std::setw(15) <<
-            "Capture" << std::setw(15) << "Double Push" << std::setw(15) << "Enpassant" << std::setw(15) << "Castle" <<
-            '\n';
+    std::ios_base::fmtflags original_flags = std::cout.flags();
+
+    std::cout << std::left
+              << std::setw(5)  << "ID"
+              << std::setw(10) << "Move"
+              << std::setw(10) << "Piece"
+              << std::setw(12) << "Promotion"
+              << std::setw(10) << "Capture"
+              << std::setw(12) << "Double"
+              << std::setw(12) << "Enpassant"
+              << std::setw(10) << "Castle\n";
+
+    std::cout << std::string(85, '-') << '\n';
+
     for (int i = 0; i < count; ++i) {
-        std::cout << FormatMoveToString(move_list[i]);
+        std::cout << FormatMoveToString(i, move_list[i]);
     }
-    std::cout << "Move count: " << count << '\n';
+
+    std::cout << "\nMove count: " << count << '\n';
+    std::cout.flags(original_flags);
 }
 
 int MoveList::EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
@@ -77,30 +90,40 @@ void MoveList::AddMove(int source_square, int target_square, int piece, int prom
                        enpassant_flag, castling_flag));
 }
 
-std::string MoveList::FormatMoveToString(int encoded_move) {
+int MoveList::GetMove(int index) const {
+    return move_list[index];
+}
+
+std::string MoveList::FormatMoveToString(int index, int encoded_move) {
     std::stringstream ss;
 
-    //Move
-    ss << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(encoded_move)) << MoveGenerator::SquareToString(
-        MoveList::DecodeGetTargetSquare(encoded_move));
+    // Convert string_view results to a single string to fix the padding gap
+    std::string moveStr = std::string(MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(encoded_move))) +
+                          std::string(MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(encoded_move)));
 
-    //Piece
-    ss << std::setw(15) << ChessBoard::PieceToChar(MoveList::DecodeGetPiece(encoded_move));
+    // 1. Index (Tightening the gap between number and move)
+    ss << std::left << std::setw(5) << (std::to_string(index) + ".");
 
-    //Promotion
-    ss << std::setw(15) << ChessBoard::PieceToChar(MoveList::DecodeGetPromotedPiece(encoded_move));
+    // 2. Move (Pads the whole "e2e4" block)
+    ss << std::left << std::setw(10) << moveStr;
 
-    //Capture
-    ss << std::setw(15) << ChessBoard::PieceToChar(MoveList::DecodeGetCapturePiece(encoded_move));
+    // 3. Piece
+    ss << std::left << std::setw(10) << ChessBoard::PieceToChar(MoveList::DecodeGetPiece(encoded_move));
 
-    //Double push
-    ss << std::setw(15) << (MoveList::DecodeGetDoublePushFlag(encoded_move) ? "true" : "false");
+    // 4. Promotion
+    ss << std::left << std::setw(12) << ChessBoard::PieceToChar(MoveList::DecodeGetPromotedPiece(encoded_move));
 
-    //Enpassant
-    ss << std::setw(15) << (MoveList::DecodeGetEnpassantFlag(encoded_move) ? "true" : "false");
+    // 5. Capture
+    ss << std::left << std::setw(10) << ChessBoard::PieceToChar(MoveList::DecodeGetCapturePiece(encoded_move));
 
-    //Castling
-    ss << std::setw(15) << (MoveList::DecodeGetCastlingFlag(encoded_move) ? "true" : "false");
+    // 6. Double push
+    ss << std::left << std::setw(12) << (MoveList::DecodeGetDoublePushFlag(encoded_move) ? "true" : "false");
+
+    // 7. Enpassant
+    ss << std::left << std::setw(12) << (MoveList::DecodeGetEnpassantFlag(encoded_move) ? "true" : "false");
+
+    // 8. Castling
+    ss << std::left << std::setw(10) << (MoveList::DecodeGetCastlingFlag(encoded_move) ? "true" : "false");
 
     ss << '\n';
     return ss.str();
