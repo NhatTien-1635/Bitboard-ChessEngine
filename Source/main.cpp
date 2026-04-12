@@ -12,7 +12,7 @@
 int main() {
     MoveGenerator::InitGenerator();
 
-    ChessBoard chess_board(FEN_TRICKY_POSITION);
+    ChessBoard chess_board(FEN_KILLER_POSITION);
     chess_board.PrintBoard();
     // chess_board.PrintAttack(Black);
     // chess_board.PrintAttack(White);
@@ -24,11 +24,13 @@ int main() {
     chess_board.PopulateMoveList(move_list);
     move_list.PrintList();
 
-    chess_board.MakeQuietMove(move_list.GetMove(6));
+    int move_index = 3;
+    int move = move_list.GetMove(move_index);
+    std::cout << MoveList::FormatMoveToString(move_index, move);
+
+    chess_board.MakeQuietMove(move);
     chess_board.PrintBoard();
 
-    chess_board.PopulateMoveList(move_list);
-    move_list.PrintList();
 
     return 0;
 }

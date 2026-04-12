@@ -5,6 +5,10 @@
 #include "../Header/ChessBoard.h"
 #include "../Header/MoveList.h"
 
+const uint8_t ChessBoard::castling_right_mask[64] = {
+#include "../Data/CastlingRightMatrix.dat"
+};
+
 void ChessBoard::PrintBoard() const {
     std::cout << std::setw(4) << "   a   b   c   d   e   f   g   h\n";
     for (int i = 0; i < 64; i++) {
@@ -140,7 +144,7 @@ void ChessBoard::ParsePositionFromFEN(std::string_view position) {
         rights = position.at(++str_index);
     }
 
-    //Update castling right
+    //Update en passant
     char en_pos = position.at(++str_index);
     if (en_pos == '-') {
         ++str_index;
@@ -151,8 +155,31 @@ void ChessBoard::ParsePositionFromFEN(std::string_view position) {
         ++str_index;
     }
 
-    //Update half-time
-    //Update turn count
+    // Skip the space after en_passant
+    while (str_index < position.length() && position.at(str_index) == ' ') {
+        ++str_index;
+    }
+
+    // Update half-time (Half-clock)
+    int half_move = 0;
+    while (str_index < position.length() && position.at(str_index) != ' ') {
+        half_move = half_move * 10 + (position.at(str_index) - '0');
+        ++str_index;
+    }
+    board_state.half_clock = half_move; // Adjust this variable name if needed
+
+    // Skip the space after half-clock
+    while (str_index < position.length() && position.at(str_index) == ' ') {
+        ++str_index;
+    }
+
+    // Update turn count
+    int full_move = 0;
+    while (str_index < position.length() && position.at(str_index) != ' ') {
+        full_move = full_move * 10 + (position.at(str_index) - '0');
+        ++str_index;
+    }
+    board_state.turn_count = full_move;
 }
 
 bool ChessBoard::MakeQuietMove(int encoded_move) {
@@ -256,14 +283,43 @@ bool ChessBoard::MakeQuietMove(int encoded_move) {
     }
 
     //King in check
+    int king_square = piece_bitboard[board_state.side_to_move].GetFirstLSBIndex();
+    Side opponent = opponent_side[board_state.side_to_move];
+    if (IsSquaredAttacked(king_square, opponent)) {
+        return false;
+    }
 
-    //Update board state
-    board_state.side_to_move = board_state.side_to_move == White ? Black : White;
+    //Update side to move
+    board_state.side_to_move = opponent_side[board_state.side_to_move];
+
+    //Update square to move if not double push
+    if (!double_push) {
+        board_state.en_passant = NoSquare;
+    }
+
+    //Update castling
+    board_state.castling_right &= (castling_right_mask[source_square] & castling_right_mask[target_square]);
+
+    //Update turn count
+    if (board_state.side_to_move == White) {
+        ++board_state.turn_count;
+    }
+
+    //Update half-clock
+    ++board_state.half_clock;
+    if (capture_piece != NoPiece || piece == BlackPawn || piece == WhitePawn) {
+        board_state.half_clock = 0;
+    }
+
+    if (board_state.half_clock == 100) {
+        return false;
+    }
+
     return true;
 }
 
 bool ChessBoard::MakeCaptureMove(int encoded_move) {
-    if (MoveList::DecodeGetCapturePiece(encoded_move) == NoPiece) {
+    if (MoveList::DecodeGetCapturePiece(encoded_move) != NoPiece) {
         return MakeQuietMove(encoded_move);
     }
     //Move is not capture move
@@ -286,16 +342,18 @@ void ChessBoard::RestoreGameState() {
 //Check if the square is attacked by the attacker Side
 bool ChessBoard::IsSquaredAttacked(uint8_t square, uint8_t attacker) const {
     //Correctly grab the ATTACKER'S pieces
-    Bitmap pawn_bits = GetPieceBitmap(attacker == White ? WhitePawn : BlackPawn);
-    Bitmap knight_bits = GetPieceBitmap(attacker == White ? WhiteKnight : BlackKnight);
-    Bitmap bishop_bits = (GetPieceBitmap(attacker == White ? WhiteBishop : BlackBishop) |
-                          GetPieceBitmap(attacker == White ? WhiteQueen : BlackQueen));
-    Bitmap rook_bits = (GetPieceBitmap(attacker == White ? WhiteRook : BlackRook) |
-                        GetPieceBitmap(attacker == White ? WhiteQueen : BlackQueen));
-    Bitmap king_bits = GetPieceBitmap(attacker == White ? WhiteKing : BlackKing);
+    // Assuming 'attacker' is an integer where White = 0 and Black = 1
+    int offset = attacker * 6; // Adds 0 for White, 6 for Black
+
+    // Just add the base White piece constant to the offset!
+    Bitmap pawn_bits   = piece_bitboard[offset + WhitePawn];
+    Bitmap knight_bits = piece_bitboard[offset + WhiteKnight];
+    Bitmap bishop_bits = piece_bitboard[offset + WhiteBishop] | piece_bitboard[offset + WhiteQueen];
+    Bitmap rook_bits   = piece_bitboard[offset + WhiteRook]   | piece_bitboard[offset + WhiteQueen];
+    Bitmap king_bits   = piece_bitboard[offset + WhiteKing];
 
     //Checking pawn attack
-    Side victim_side = (attacker == White ? Black : White);
+    Side victim_side = opponent_side[attacker];
     if (MoveGenerator::GetPawnAttack(square, victim_side) & pawn_bits) return true;
 
     //Checking knight attack
@@ -484,14 +542,14 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                         attack.RemoveBit(target_square);
 
                         bool is_attacking = ((1ULL << target_square) & occupancy_bitboard[
-                                                 side == White ? Black : White]);
+                                                 opponent_side[side]]);
                         if (is_attacking) {
                             move_list.AddMove(source_square, target_square,
-                                              ((side == White) ? WhiteKnight : BlackKnight), NoPiece, mailbox[target_square], false,
+                                              opposite_piece[piece], NoPiece, mailbox[target_square], false,
                                               false, false);
                         } else {
                             move_list.AddMove(source_square, target_square,
-                                              ((side == White) ? WhiteKnight : BlackKnight), NoPiece, mailbox[target_square], false,
+                                              opposite_piece[piece], NoPiece, mailbox[target_square], false,
                                               false, false);
                         }
                     }
@@ -512,14 +570,14 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                         attack.RemoveBit(target_square);
 
                         bool is_attacking = ((1ULL << target_square) & occupancy_bitboard[
-                                                 side == White ? Black : White]);
+                                                 opponent_side[side]]);
                         if (is_attacking) {
                             move_list.AddMove(source_square, target_square,
-                                              ((side == White) ? WhiteBishop : BlackBishop), NoPiece, mailbox[target_square], false,
+                                              opposite_piece[piece], NoPiece, mailbox[target_square], false,
                                               false, false);
                         } else {
                             move_list.AddMove(source_square, target_square,
-                                              ((side == White) ? WhiteBishop : BlackBishop), NoPiece, mailbox[target_square], false,
+                                              opposite_piece[piece], NoPiece, mailbox[target_square], false,
                                               false, false);
                         }
                     }
@@ -540,12 +598,12 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                         attack.RemoveBit(target_square);
 
                         bool is_attacking = ((1ULL << target_square) & occupancy_bitboard[
-                                                 side == White ? Black : White]);
+                                                 opponent_side[side]]);
                         if (is_attacking) {
-                            move_list.AddMove(source_square, target_square, ((side == White) ? WhiteRook : BlackRook),
+                            move_list.AddMove(source_square, target_square, opposite_piece[piece],
                                               NoPiece, mailbox[target_square], false, false, false);
                         } else {
-                            move_list.AddMove(source_square, target_square, ((side == White) ? WhiteRook : BlackRook),
+                            move_list.AddMove(source_square, target_square, opposite_piece[piece],
                                               NoPiece, mailbox[target_square], false, false, false);
                         }
                     }
@@ -566,12 +624,12 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                         attack.RemoveBit(target_square);
 
                         bool is_attacking = ((1ULL << target_square) & occupancy_bitboard[
-                                                 side == White ? Black : White]);
+                                                 opponent_side[side]]);
                         if (is_attacking) {
-                            move_list.AddMove(source_square, target_square, ((side == White) ? WhiteQueen : BlackQueen),
+                            move_list.AddMove(source_square, target_square, opposite_piece[piece],
                                               NoPiece, mailbox[target_square], false, false, false);
                         } else {
-                            move_list.AddMove(source_square, target_square, ((side == White) ? WhiteQueen : BlackQueen),
+                            move_list.AddMove(source_square, target_square, opposite_piece[piece],
                                               NoPiece, mailbox[target_square], false, false, false);
                         }
                     }
@@ -589,16 +647,16 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                     target_square = attack.GetFirstLSBIndex();
                     attack.RemoveBit(target_square);
 
-                    if (IsSquaredAttacked(target_square, side == White ? Black : White)) {
+                    if (IsSquaredAttacked(target_square, opponent_side[side])) {
                         continue;
                     }
 
-                    bool is_attacking = ((1ULL << target_square) & occupancy_bitboard[side == White ? Black : White]);
+                    bool is_attacking = ((1ULL << target_square) & occupancy_bitboard[opponent_side[side]]);
                     if (is_attacking) {
-                        move_list.AddMove(source_square, target_square, ((side == White) ? WhiteKing : BlackKing),
+                        move_list.AddMove(source_square, target_square, opposite_piece[piece],
                                           NoPiece, mailbox[target_square], false, false, false);
                     } else {
-                        move_list.AddMove(source_square, target_square, ((side == White) ? WhiteKing : BlackKing),
+                        move_list.AddMove(source_square, target_square, opposite_piece[piece],
                                           NoPiece, mailbox[target_square], false, false, false);
                     }
                 }

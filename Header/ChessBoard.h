@@ -68,10 +68,13 @@ public:
     void ParsePositionFromFEN(std::string_view position);
 
     bool MakeQuietMove(int encoded_move);
+
     bool MakeCaptureMove(int encoded_move);
 
     void UnmakeMove(int encoded_move);
+
     void ReserveGameState();
+
     void RestoreGameState();
 
     //Return if the square is attacked by the opposite color
@@ -95,7 +98,7 @@ public:
 
     void ClearBoard();
 
-    void PopulateMoveList(MoveList& move_list);
+    void PopulateMoveList(MoveList &move_list);
 
     // private:
     static Piece CharToPieceIndex(char str);
@@ -119,7 +122,23 @@ private:
      * q = Queen
      * k = Knight
      */
+    static constexpr Side opponent_side[2] = {Black, White};
+    static constexpr Piece opposite_piece[12] = {
+        BlackPawn,
+        BlackKnight,
+        BlackBishop,
+        BlackRook,
+        BlackQueen,
+        BlackKing,
+        WhitePawn,
+        WhiteKnight,
+        WhiteBishop,
+        WhiteRook,
+        WhiteQueen,
+        WhiteKing
+    };
     static constexpr char piece_strings[13] = {'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k', '.'};
+    static const uint8_t castling_right_mask[64];
 };
 
 
