@@ -94,6 +94,10 @@ int MoveList::GetMove(int index) const {
     return move_list[index];
 }
 
+int MoveList::GetMoveCount() const {
+    return count;
+}
+
 std::string MoveList::FormatMoveToString(int index, int encoded_move) {
     std::stringstream ss;
 

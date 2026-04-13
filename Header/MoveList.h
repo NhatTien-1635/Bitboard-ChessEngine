@@ -56,6 +56,7 @@ public:
     void AddMove(int move);
     void AddMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece, int double_push_flag, int enpassant_flag, int castling_flag);
     int GetMove(int index) const;
+    int GetMoveCount() const;
 
     MoveList() = default;
     ~MoveList() = default;

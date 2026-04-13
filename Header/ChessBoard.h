@@ -73,10 +73,6 @@ public:
 
     void UnmakeMove(int encoded_move);
 
-    void ReserveGameState();
-
-    void RestoreGameState();
-
     //Return if the square is attacked by the opposite color
     bool IsSquaredAttacked(uint8_t square, uint8_t attacker) const;
 
@@ -88,9 +84,6 @@ public:
 
     //Private later
 public:
-    void PlacePiece(int square, Piece piece);
-
-    void RemovePiece(int square);
 
     Bitmap GetPieceBitmap(int piece) const;
 

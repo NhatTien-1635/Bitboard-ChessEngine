@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "../Header/Terminal.h"
 #include "../Header/Bitmap.h"
 #include "../Header/MoveGenerator.h"
@@ -12,7 +14,7 @@
 int main() {
     MoveGenerator::InitGenerator();
 
-    ChessBoard chess_board(FEN_KILLER_POSITION);
+    ChessBoard chess_board(FEN_TRICKY_POSITION);
     chess_board.PrintBoard();
     // chess_board.PrintAttack(Black);
     // chess_board.PrintAttack(White);
@@ -24,13 +26,42 @@ int main() {
     chess_board.PopulateMoveList(move_list);
     move_list.PrintList();
 
-    int move_index = 3;
-    int move = move_list.GetMove(move_index);
-    std::cout << MoveList::FormatMoveToString(move_index, move);
+    for (int index = 0; index < move_list.GetMoveCount(); ++index) {
+        int move = move_list.GetMove(index);
 
-    chess_board.MakeQuietMove(move);
-    chess_board.PrintBoard();
+        //Print move
+        std::ios_base::fmtflags original_flags = std::cout.flags();
+        std::cout << std::left
+                  << std::setw(5)  << "ID"
+                  << std::setw(10) << "Move"
+                  << std::setw(10) << "Piece"
+                  << std::setw(12) << "Promotion"
+                  << std::setw(10) << "Capture"
+                  << std::setw(12) << "Double"
+                  << std::setw(12) << "Enpassant"
+                  << std::setw(10) << "Castle\n";
+        std::cout << MoveList::FormatMoveToString(index, move);
+        std::cout.flags(original_flags);
 
+        //Print board before make move
+        std::cout << "\n________________________________________________\n";
+        std::cout << "Board before make move:\n";
+        chess_board.PrintBoard();
+
+        //Print board after make move
+        std::cout << "\n________________________________________________\n";
+        std::cout << "Board after make move\n";
+        chess_board.MakeQuietMove(move);
+        chess_board.PrintBoard();
+
+        //Print board after un-make move
+        std::cout << "\n________________________________________________\n";
+        std::cout << "Board after un-make move\n";
+        chess_board.UnmakeMove(move);
+        chess_board.PrintBoard();
+
+
+    }
 
     return 0;
 }
