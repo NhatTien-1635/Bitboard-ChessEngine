@@ -29,7 +29,7 @@ void MoveList::PrintList() {
 
 int MoveList::EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
                          int double_push_flag, int enpassant_flag, int castling_flag) {
-    uint64_t encoded_move = 0ULL;
+    int encoded_move = 0ULL;
 
     encoded_move |= source_square;
     encoded_move |= (target_square << ENCODE_TARGET_SQUARE_OFFSET);
@@ -43,40 +43,40 @@ int MoveList::EncodeMove(int source_square, int target_square, int piece, int pr
     return encoded_move;
 }
 
-Square MoveList::DecodeGetSourceSquare(uint64_t move) {
+Square MoveList::DecodeGetSourceSquare(int move) {
     return (Square) (move & DECODE_SOURCE_SQUARE_MASK);
 }
 
-Square MoveList::DecodeGetTargetSquare(uint64_t move) {
+Square MoveList::DecodeGetTargetSquare(int move) {
     return (Square) ((move & DECODE_TARGET_SQUARE_MASK) >> ENCODE_TARGET_SQUARE_OFFSET);
 }
 
-Piece MoveList::DecodeGetPiece(uint64_t move) {
+Piece MoveList::DecodeGetPiece(int move) {
     return (Piece) ((move & DECODE_PIECE_MASK) >> ENCODE_PIECE_OFFSET);
 }
 
-Piece MoveList::DecodeGetPromotedPiece(uint64_t move) {
+Piece MoveList::DecodeGetPromotedPiece(int move) {
     return (Piece) ((move & DECODE_PROMOTED_PIECE_MASK) >> ENCODE_PROMOTED_PIECE_OFFSET);
 }
 
-Piece MoveList::DecodeGetCapturePiece(uint64_t move) {
+Piece MoveList::DecodeGetCapturePiece(int move) {
     return (Piece) ((move & DECODE_CAPTURED_PIECE_MASK) >> ENCODE_CAPTURED_PIECE_OFFSET);
 }
 
-bool MoveList::DecodeGetDoublePushFlag(uint64_t move) {
+bool MoveList::DecodeGetDoublePushFlag(int move) {
     return (move & DECODE_DOUBLE_PUSH_FLAG_MASK);
 }
 
-bool MoveList::DecodeGetEnpassantFlag(uint64_t move) {
+bool MoveList::DecodeGetEnpassantFlag(int move) {
     return (move & DECODE_ENPASSANT_FLAG_MASK);
 }
 
-bool MoveList::DecodeGetCastlingFlag(uint64_t move) {
+bool MoveList::DecodeGetCastlingFlag(int move) {
     return (move & DECODE_CASTLING_FLAG_MASK);
 }
 
 void MoveList::ClearList() {
-    memset(move_list, 0, sizeof(uint64_t) * 256);
+    memset(move_list, 0, sizeof(int) * 256);
     count = 0;
 }
 

@@ -43,14 +43,14 @@ public:
 
     static int EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece, int double_push_flag, int enpassant_flag, int castling_flag);
 
-    static Square DecodeGetSourceSquare(uint64_t move);
-    static Square DecodeGetTargetSquare(uint64_t move);
-    static Piece DecodeGetPiece(uint64_t move);
-    static Piece DecodeGetPromotedPiece(uint64_t move);
-    static Piece DecodeGetCapturePiece(uint64_t move);
-    static bool DecodeGetDoublePushFlag(uint64_t move);
-    static bool DecodeGetEnpassantFlag(uint64_t move);
-    static bool DecodeGetCastlingFlag(uint64_t move);
+    static Square DecodeGetSourceSquare(int move);
+    static Square DecodeGetTargetSquare(int move);
+    static Piece DecodeGetPiece(int move);
+    static Piece DecodeGetPromotedPiece(int move);
+    static Piece DecodeGetCapturePiece(int move);
+    static bool DecodeGetDoublePushFlag(int move);
+    static bool DecodeGetEnpassantFlag(int move);
+    static bool DecodeGetCastlingFlag(int move);
 
     void ClearList();
     void AddMove(int move);
@@ -65,7 +65,7 @@ public:
     static std::string FormatMoveToString(int index, int move);
 
 private:
-    uint64_t move_list[256];
+    int move_list[256];
     int count = 0;
 
 

@@ -14,6 +14,8 @@ add_executable(BitmapManipulator Source/main.cpp
         Header/ChessBoard.h
         Source/MoveList.cpp
         Header/MoveList.h
+        Source/PerformanceTest.cpp
+        Header/PerformanceTest.h
         #        Source/MagicNumberGenerator.cpp
 #        Header/MagicNumberGenerator.h
 )
