@@ -21,20 +21,27 @@ void PerformanceTest::PrintResult() {
 }
 
 void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
-   if (depth == 0) {
-      ++nodes;
+   MoveList move_list;
+   board.PopulateMoveList(move_list);
+
+   if (depth == 1) {
+      int legal_moves = 0;
+      for (int i = 0; i < move_list.GetMoveCount(); ++i) {
+         if (board.MakeQuietMove(move_list.GetMove(i))) {
+            legal_moves++;
+            board.UnmakeMove(move_list.GetMove(i));
+         }
+      }
+      nodes += legal_moves;
       return;
    }
 
-   MoveList move_list;
-   board.PopulateMoveList(move_list);
    for (int index = 0; index < move_list.GetMoveCount(); ++index) {
       int encoded_move = move_list.GetMove(index);
 
       if (!board.MakeQuietMove(encoded_move)) {
          continue;
       }
-
       RunDriverHelper(board, depth - 1);
 
       board.UnmakeMove(encoded_move);

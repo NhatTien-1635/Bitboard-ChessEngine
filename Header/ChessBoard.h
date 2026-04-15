@@ -68,22 +68,25 @@ public:
     void ParsePositionFromFEN(std::string_view position);
 
     //TODO: Refactor for optimization
+    // template<Side side>
     bool MakeQuietMove(int encoded_move);
 
     //TODO: Refactor for optimization
+    // template<Side side>
     bool MakeCaptureMove(int encoded_move);
 
     //TODO: Refactor for optimization
+    // template<Side side>
     void UnmakeMove(int encoded_move);
 
-    //TODO: Refactor for optimization
     //Return if the square is attacked by the opposite color
     bool IsSquaredAttacked(uint8_t square, uint8_t attacker) const;
 
     //TODO: Refactor for optimization
     void PopulateMoveList(MoveList &move_list);
-    // template<Side side>
-    // void PopulateMove(MoveList& move_list);
+
+    template<Side side>
+    void PopulateMove(MoveList& move_list);
 
     ChessBoard();
 
@@ -140,5 +143,8 @@ private:
     static const uint8_t castling_right_mask[64];
 };
 
+template<Side side>
+void ChessBoard::PopulateMove(MoveList &move_list) {
 
+}
 #endif //BITMAPMANIPULATOR_CHESSBOARD_H
