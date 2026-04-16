@@ -10,16 +10,18 @@
 
 #include <random>
 
-#define FEN_TEST_POSITION "8/7K/8/7k/7p/8/6P1/8 w - - 0 1"
+#define FEN_TEST_POSITION "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 "
+
+// #define EXTRA_INFO
 
 int main() {
     MoveGenerator::InitGenerator();
 
-    ChessBoard chess_board(FEN_STARTING_POSITION);
+    ChessBoard chess_board(FEN_TEST_POSITION);
     chess_board.PrintBoard();
     PerformanceTest perft_test;
 
-    perft_test.RunDriver(chess_board, 6);
+    perft_test.RunDriver(chess_board, 4);
     perft_test.PrintResult();
 
     // MoveList move_list;

@@ -24,6 +24,11 @@ private:
     static void RunDriverHelper(ChessBoard &board, int depth);
 
     static uint64_t nodes;
+    static uint64_t castle_count;
+    static uint64_t capture_count;
+    static uint64_t enpassant_count;
+    static uint64_t promotion_count;
+
     static std::chrono::duration<double> run_time;
 };
 

@@ -207,6 +207,19 @@ bool ChessBoard::MakeQuietMove(int encoded_move) {
         occupancy_bitboard[opponent_side[board_state.side_to_move]].RemoveBit(target_square);
     }
 
+    //En passant
+    if (en_passant) {
+        if (board_state.side_to_move == White) {
+            piece_bitboard[BlackPawn].RemoveBit(target_square + 8);
+            occupancy_bitboard[Black].RemoveBit(target_square + 8);
+            mailbox[target_square + 8] = NoPiece;
+        } else {
+            piece_bitboard[WhitePawn].RemoveBit(target_square - 8);
+            occupancy_bitboard[White].RemoveBit(target_square - 8);
+            mailbox[target_square - 8] = NoPiece;
+        }
+    }
+
     //Promotion
     Piece promoted_piece = MoveList::DecodeGetPromotedPiece(encoded_move);
     if (promoted_piece != NoPiece) {
@@ -226,18 +239,6 @@ bool ChessBoard::MakeQuietMove(int encoded_move) {
         }
     }
 
-    //En passant
-    if (en_passant) {
-        if (board_state.side_to_move == White) {
-            piece_bitboard[BlackPawn].RemoveBit(target_square + 8);
-            occupancy_bitboard[Black].RemoveBit(target_square + 8);
-            mailbox[target_square + 8] = NoPiece;
-        } else {
-            piece_bitboard[WhitePawn].RemoveBit(target_square - 8);
-            occupancy_bitboard[White].RemoveBit(target_square - 8);
-            mailbox[target_square - 8] = NoPiece;
-        }
-    }
 
     //Castle
     bool castling = MoveList::DecodeGetCastlingFlag(encoded_move);
@@ -345,7 +346,7 @@ bool ChessBoard::MakeCaptureMove(int encoded_move) {
 
 void ChessBoard::UnmakeMove(int encoded_move) {
     //Restore game state
-    board_state = history[--game_ply];
+    board_state = std::move(history[--game_ply]);
 
     Square source_square = MoveList::DecodeGetSourceSquare(encoded_move);
     Square target_square = MoveList::DecodeGetTargetSquare(encoded_move);
@@ -742,7 +743,7 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                     if (board_state.castling_right & WhiteToQueen) {
                         bool no_attack = (!IsSquaredAttacked(c1, Black) && !IsSquaredAttacked(d1, Black));
                         bool no_occupancy = ((mailbox[b1] == NoPiece) && (mailbox[c1] == NoPiece) && (mailbox[d1] == NoPiece));
-                        bool rook_exist = (mailbox[h1] == WhiteRook);
+                        bool rook_exist = (mailbox[a1] == WhiteRook);
                         if (no_attack && no_occupancy && rook_exist) {
                             move_list.AddMove(e1, c1, WhiteKing, NoPiece, NoPiece, false, false, true);
                         }
