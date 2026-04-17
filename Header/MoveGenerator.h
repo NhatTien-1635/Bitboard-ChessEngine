@@ -33,17 +33,17 @@ class MoveGenerator {
 public:
     static void InitGenerator();
 
-    static Bitmap GetPawnAttack(int square, Side side);
+    inline static Bitmap GetPawnAttack(int square, Side side);
 
-    static Bitmap GetKnightAttack(int square);
+    inline static Bitmap GetKnightAttack(int square);
 
-    static Bitmap GetKingAttack(int square);
+    inline static Bitmap GetKingAttack(int square);
 
-    static Bitmap GetBishopAttack(int square, Bitmap occupancy);
+    inline static Bitmap GetBishopAttack(int square, Bitmap occupancy);
 
-    static Bitmap GetRookAttack(int square, Bitmap occupancy);
+    inline static Bitmap GetRookAttack(int square, Bitmap occupancy);
 
-    static Bitmap GetQueenAttack(int square, Bitmap occupancy);
+    inline static Bitmap GetQueenAttack(int square, Bitmap occupancy);
 
     static std::string_view SquareToString(int square);
 
@@ -105,4 +105,57 @@ private:
 #include "../Data/ChessSquareString.dat"
     };
 };
+
+Bitmap MoveGenerator::GetPawnAttack(int square, Side side) {
+    if (square == 255 || square == -1) {
+        return Bitmap();
+    }
+
+    return pawn_attack[side][square];
+}
+
+Bitmap MoveGenerator::GetKnightAttack(int square) {
+    if (square == 255 || square == -1) {
+        return Bitmap();
+    }
+
+    return knight_attack[square];
+}
+
+Bitmap MoveGenerator::GetKingAttack(int square) {
+    if (square == 255 || square == -1) {
+        return Bitmap();
+    }
+
+    return king_attack[square];
+}
+
+Bitmap MoveGenerator::GetBishopAttack(int square, Bitmap occupancy) {
+    if (square == 255 || square == -1) {
+        return Bitmap();
+    }
+
+    occupancy &= relevant_bishop_occupancy[square];
+    occupancy *= bishop_magic_number[square];
+    occupancy >>= (64 - bishop_occupancy_bit_count[square]);
+
+    return bishop_attack[square][occupancy];
+}
+
+Bitmap MoveGenerator::GetRookAttack(int square, Bitmap occupancy) {
+    if (square == 255 || square == -1) {
+        return Bitmap();
+    }
+
+    occupancy &= relevant_rook_occupancy[square];
+    occupancy *= rook_magic_number[square];
+    occupancy >>= (64 - rook_occupancy_bit_count[square]);
+
+    return rook_attack[square][occupancy];
+}
+
+Bitmap MoveGenerator::GetQueenAttack(int square, Bitmap occupancy) {
+    return (GetRookAttack(square, occupancy) | GetBishopAttack(square, occupancy));
+}
+
 #endif //BITMAPMANIPULATOR_MOVEGENERATOR_H

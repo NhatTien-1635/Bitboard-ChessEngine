@@ -48,58 +48,6 @@ void MoveGenerator::InitGenerator() {
     InitRookAttack();
 }
 
-Bitmap MoveGenerator::GetPawnAttack(int square, Side side) {
-    if (square == 255 || square == -1) {
-        return Bitmap();
-    }
-
-    return pawn_attack[side][square];
-}
-
-Bitmap MoveGenerator::GetKnightAttack(int square) {
-    if (square == 255 || square == -1) {
-        return Bitmap();
-    }
-
-    return knight_attack[square];
-}
-
-Bitmap MoveGenerator::GetKingAttack(int square) {
-    if (square == 255 || square == -1) {
-        return Bitmap();
-    }
-
-    return king_attack[square];
-}
-
-Bitmap MoveGenerator::GetBishopAttack(int square, Bitmap occupancy) {
-    if (square == 255 || square == -1) {
-        return Bitmap();
-    }
-
-    occupancy &= relevant_bishop_occupancy[square];
-    occupancy *= bishop_magic_number[square];
-    occupancy >>= (64 - bishop_occupancy_bit_count[square]);
-
-    return bishop_attack[square][occupancy];
-}
-
-Bitmap MoveGenerator::GetRookAttack(int square, Bitmap occupancy) {
-    if (square == 255 || square == -1) {
-        return Bitmap();
-    }
-
-    occupancy &= relevant_rook_occupancy[square];
-    occupancy *= rook_magic_number[square];
-    occupancy >>= (64 - rook_occupancy_bit_count[square]);
-
-    return rook_attack[square][occupancy];
-}
-
-Bitmap MoveGenerator::GetQueenAttack(int square, Bitmap occupancy) {
-    return (GetRookAttack(square, occupancy) | GetBishopAttack(square, occupancy));
-}
-
 void MoveGenerator::InitBishopAttack() {
     for (int square = 0; square < 64; ++square) {
         relevant_bishop_occupancy[square] = GenerateBishopRelevantOccupancy(square);

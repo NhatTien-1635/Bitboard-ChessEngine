@@ -17,6 +17,8 @@
  *  Reference: https://www.chessprogramming.org/Forsyth-Edwards_Notation
  */
 
+#define NEW_POPULATE_MOVE_LIST_FUNCTION
+
 //Debug test
 #define FEN_EMPTY_BOARD "8/8/8/8/8/8/8/8 w - - "
 #define FEN_STARTING_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -141,10 +143,11 @@ private:
     };
     static constexpr char piece_strings[13] = {'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k', '.'};
     static const uint8_t castling_right_mask[64];
+
+    static constexpr int forward_pawn_offset[2] = {-8, 8};
+    static constexpr uint64_t promotion_zone[2] = {0xFFULL, 0xFFULL << (8 * 7)};
+    static constexpr uint64_t pawn_start_rank[2] = {0xFFULL << (8 * 6), 0xFFULL << (8 * 1)};
 };
 
-template<Side side>
-void ChessBoard::PopulateMove(MoveList &move_list) {
 
-}
 #endif //BITMAPMANIPULATOR_CHESSBOARD_H

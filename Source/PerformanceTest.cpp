@@ -5,6 +5,7 @@
 #include "../Header/PerformanceTest.h"
 
 uint64_t PerformanceTest::nodes = 0;
+int PerformanceTest::depth_test = 0;
 uint64_t PerformanceTest::castle_count = 0;
 uint64_t PerformanceTest::capture_count = 0;
 uint64_t PerformanceTest::enpassant_count = 0;
@@ -12,6 +13,7 @@ uint64_t PerformanceTest::promotion_count = 0;
 std::chrono::duration<double> PerformanceTest::run_time;
 
 void PerformanceTest::RunDriver(ChessBoard &board, int depth) {
+   depth_test = depth;
    auto start_time = std::chrono::steady_clock::now();
 
    RunDriverHelper(board, depth);
@@ -20,6 +22,7 @@ void PerformanceTest::RunDriver(ChessBoard &board, int depth) {
 }
 
 void PerformanceTest::PrintResult() {
+   std::cout << "Depth: " << depth_test << '\n';
 #ifdef EXTRA_INFO
    std::cout << "Castling: : " << castle_count << '\n';
    std::cout << "Captures: " << capture_count << '\n';
@@ -32,16 +35,9 @@ void PerformanceTest::PrintResult() {
 }
 
 void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
-#ifndef EXTRA_INFO
    MoveList move_list;
    board.PopulateMoveList(move_list);
 
-   if (depth == 0) {
-      ++nodes;
-      return;
-   }
-
-#else
    if (depth == 1) {
       int legal_moves = 0;
       for (int i = 0; i < move_list.GetMoveCount(); ++i) {
@@ -49,6 +45,7 @@ void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
          if (board.MakeQuietMove(move_list.GetMove(i))) {
             ++legal_moves;
 
+#ifdef EXTRA_INFO
             //Store extra info
             if (MoveList::DecodeGetCapturePiece(encoded_move) != NoPiece) {
                ++capture_count;
@@ -65,6 +62,7 @@ void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
             if (MoveList::DecodeGetPromotedPiece(encoded_move) != NoPiece) {
                ++promotion_count;
             }
+#endif
 
             board.UnmakeMove(move_list.GetMove(i));
          }
@@ -72,7 +70,6 @@ void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
       nodes += legal_moves;
       return;
    }
-#endif
 
    for (int index = 0; index < move_list.GetMoveCount(); ++index) {
 

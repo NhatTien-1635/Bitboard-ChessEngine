@@ -209,15 +209,12 @@ bool ChessBoard::MakeQuietMove(int encoded_move) {
 
     //En passant
     if (en_passant) {
-        if (board_state.side_to_move == White) {
-            piece_bitboard[BlackPawn].RemoveBit(target_square + 8);
-            occupancy_bitboard[Black].RemoveBit(target_square + 8);
-            mailbox[target_square + 8] = NoPiece;
-        } else {
-            piece_bitboard[WhitePawn].RemoveBit(target_square - 8);
-            occupancy_bitboard[White].RemoveBit(target_square - 8);
-            mailbox[target_square - 8] = NoPiece;
-        }
+        Side opponent = opponent_side[board_state.side_to_move];
+        Piece pawn = Piece(opponent * 6 + WhitePawn);
+
+        piece_bitboard[pawn].RemoveBit(target_square + forward_pawn_offset[opponent]);
+        occupancy_bitboard[opponent].RemoveBit(target_square + forward_pawn_offset[opponent]);
+        mailbox[target_square + forward_pawn_offset[opponent]] = NoPiece;
     }
 
     //Promotion
@@ -232,64 +229,53 @@ bool ChessBoard::MakeQuietMove(int encoded_move) {
     //Double
     bool double_push = MoveList::DecodeGetDoublePushFlag(encoded_move);
     if (double_push) {
-        if (board_state.side_to_move == White) {
-            board_state.en_passant = target_square + 8;
-        } else {
-            board_state.en_passant = target_square - 8;
-        }
+        board_state.en_passant = (target_square + forward_pawn_offset[opponent_side[board_state.side_to_move]]);
     }
 
 
     //Castle
     bool castling = MoveList::DecodeGetCastlingFlag(encoded_move);
     if (castling) {
-        if (board_state.side_to_move == White) {
-            // Castling queen side
-            if (target_square == c1) {
-                piece_bitboard[WhiteRook].RemoveBit(a1);
-                piece_bitboard[WhiteRook].InsertBit(d1);
+        int rook_source = 0;
+        int rook_target = 0;
 
-                occupancy_bitboard[White].RemoveBit(a1);
-                occupancy_bitboard[White].InsertBit(d1);
+        switch (target_square) {
+            //White castle queen side
+            case c1:
+                rook_source = a1;
+                rook_target = d1;
+                break;
+            //White castle king side
+            case g1:
+                rook_source = h1;
+                rook_target = f1;
+                break;
+            //Black castle queen side
+            case c8:
+                rook_source = a8;
+                rook_target = d8;
+                break;
+            //Black castle king side
+            case g8:
+                rook_source = h8;
+                rook_target = f8;
+                break;
 
-                mailbox[a1] = NoPiece;
-                mailbox[d1] = WhiteRook;
-            }
-            // Castling king side
-            else if (target_square == g1) {
-                piece_bitboard[WhiteRook].RemoveBit(h1);
-                piece_bitboard[WhiteRook].InsertBit(f1);
-
-                occupancy_bitboard[White].RemoveBit(h1);
-                occupancy_bitboard[White].InsertBit(f1);
-
-                mailbox[h1] = NoPiece;
-                mailbox[f1] = WhiteRook;
-            }
-        } else {
-            // Castling queen side
-            if (target_square == c8) {
-                piece_bitboard[BlackRook].RemoveBit(a8);
-                piece_bitboard[BlackRook].InsertBit(d8);
-
-                occupancy_bitboard[Black].RemoveBit(a8);
-                occupancy_bitboard[Black].InsertBit(d8);
-
-                mailbox[a8] = NoPiece;
-                mailbox[d8] = BlackRook;
-            }
-            // Castling king side
-            else if (target_square == g8) {
-                piece_bitboard[BlackRook].RemoveBit(h8);
-                piece_bitboard[BlackRook].InsertBit(f8);
-
-                occupancy_bitboard[Black].RemoveBit(h8);
-                occupancy_bitboard[Black].InsertBit(f8);
-
-                mailbox[h8] = NoPiece;
-                mailbox[f8] = BlackRook;
-            }
+            default:
+                break;
         }
+
+        Side side = (Side)board_state.side_to_move;
+        Piece rook = Piece(side * 6 + WhiteRook);
+
+        piece_bitboard[rook].RemoveBit(rook_source);
+        piece_bitboard[rook].InsertBit(rook_target);
+
+        occupancy_bitboard[side].RemoveBit(rook_source);
+        occupancy_bitboard[side].InsertBit(rook_target);
+
+        mailbox[rook_source] = NoPiece;
+        mailbox[rook_target] = rook;
     }
 
     //Update occupancy bitboard
@@ -322,11 +308,8 @@ bool ChessBoard::MakeQuietMove(int encoded_move) {
     }
 
     //King in check
-    Side king_side = (Side)history[game_ply - 1].side_to_move;
-    Side opponent = (Side)opponent_side[king_side];
-
-    int king_square = piece_bitboard[king_side * 6 + WhiteKing].GetFirstLSBIndex();
-    if (IsSquaredAttacked(king_square, opponent)) {
+    if (IsSquaredAttacked(piece_bitboard[history[game_ply - 1].side_to_move * 6 + WhiteKing].GetFirstLSBIndex(),
+                          opponent_side[history[game_ply - 1].side_to_move])) {
         UnmakeMove(encoded_move);
         return false;
     }
@@ -382,64 +365,58 @@ void ChessBoard::UnmakeMove(int encoded_move) {
 
     //En passant
     if (en_passant) {
-        if (board_state.side_to_move == White) {
-            piece_bitboard[BlackPawn].InsertBit(target_square + 8);
-            occupancy_bitboard[Black].InsertBit(target_square + 8);
-            mailbox[target_square + 8] = BlackPawn;
-        } else {
-            piece_bitboard[WhitePawn].InsertBit(target_square - 8);
-            occupancy_bitboard[White].InsertBit(target_square - 8);
-            mailbox[target_square - 8] = WhitePawn;
-        }
+        Side opponent = opponent_side[board_state.side_to_move];
+        Piece opponent_pawn = Piece(opponent_side[board_state.side_to_move] * 6 + WhitePawn);
+
+        piece_bitboard[opponent_pawn].InsertBit(target_square + forward_pawn_offset[opponent]);
+        occupancy_bitboard[opponent].InsertBit(target_square + forward_pawn_offset[opponent]);
+        mailbox[target_square + forward_pawn_offset[opponent]] = opponent_pawn;
     }
 
     //Castling
     bool castling = MoveList::DecodeGetCastlingFlag(encoded_move);
     if (castling) {
-        if (board_state.side_to_move == White) {
-            // Castling queen side
-            if (target_square == c1) {
-                piece_bitboard[WhiteRook].RemoveBit(d1);
-                occupancy_bitboard[White].RemoveBit(d1);
-                piece_bitboard[WhiteRook].InsertBit(a1);
-                occupancy_bitboard[White].InsertBit(a1);
 
-                mailbox[a1] = WhiteRook;
-                mailbox[d1] = NoPiece;
-            }
-            // Castling king side
-            else if (target_square == g1) {
-                piece_bitboard[WhiteRook].RemoveBit(f1);
-                occupancy_bitboard[White].RemoveBit(f1);
-                piece_bitboard[WhiteRook].InsertBit(h1);
-                occupancy_bitboard[White].InsertBit(h1);
+        int rook_source = 0;
+        int rook_target = 0;
 
-                mailbox[h1] = WhiteRook;
-                mailbox[f1] = NoPiece;
-            }
-        } else {
-            // Castling queen side
-            if (target_square == c8) {
-                piece_bitboard[BlackRook].RemoveBit(d8);
-                occupancy_bitboard[Black].RemoveBit(d8);
-                piece_bitboard[BlackRook].InsertBit(a8);
-                occupancy_bitboard[Black].InsertBit(a8);
+        switch (target_square) {
+            //White castle queen side
+            case c1:
+                rook_source = d1;
+                rook_target = a1;
+                break;
+                //White castle king side
+            case g1:
+                rook_source = f1;
+                rook_target = h1;
+                break;
+                //Black castle queen side
+            case c8:
+                rook_source = d8;
+                rook_target = a8;
+                break;
+                //Black castle king side
+            case g8:
+                rook_source = f8;
+                rook_target = h8;
+                break;
 
-                mailbox[a8] = BlackRook;
-                mailbox[d8] = NoPiece;
-            }
-            // Castling king side
-            else if (target_square == g8) {
-                piece_bitboard[BlackRook].RemoveBit(f8);
-                occupancy_bitboard[Black].RemoveBit(f8);
-                piece_bitboard[BlackRook].InsertBit(h8);
-                occupancy_bitboard[Black].InsertBit(h8);
-
-
-                mailbox[h8] = BlackRook;
-                mailbox[f8] = NoPiece;
-            }
+            default:
+                break;
         }
+
+        Side side = (Side)board_state.side_to_move;
+        Piece rook = Piece(side * 6 + WhiteRook);
+
+        piece_bitboard[rook].RemoveBit(rook_source);
+        piece_bitboard[rook].InsertBit(rook_target);
+
+        occupancy_bitboard[side].RemoveBit(rook_source);
+        occupancy_bitboard[side].InsertBit(rook_target);
+
+        mailbox[rook_source] = NoPiece;
+        mailbox[rook_target] = rook;
     }
 
     //Restore occupancy bitboard
@@ -451,26 +428,23 @@ bool ChessBoard::IsSquaredAttacked(uint8_t square, uint8_t attacker) const {
     //Calculate offset
     int offset = attacker * 6;
 
-    //Grap the correct piece
-    Bitmap pawn_bits = piece_bitboard[offset + WhitePawn];
-    Bitmap knight_bits = piece_bitboard[offset + WhiteKnight];
-    Bitmap bishop_bits = piece_bitboard[offset + WhiteBishop] | piece_bitboard[offset + WhiteQueen];
-    Bitmap rook_bits = piece_bitboard[offset + WhiteRook] | piece_bitboard[offset + WhiteQueen];
-    Bitmap king_bits = piece_bitboard[offset + WhiteKing];
-
     //Checking pawn attack
     Side victim_side = opponent_side[attacker];
-    if (MoveGenerator::GetPawnAttack(square, victim_side) & pawn_bits) return true;
+    if (MoveGenerator::GetPawnAttack(square, victim_side) & piece_bitboard[offset + WhitePawn]) return true;
 
     //Checking knight attack
-    if (MoveGenerator::GetKnightAttack(square) & knight_bits) return true;
+    if (MoveGenerator::GetKnightAttack(square) & piece_bitboard[offset + WhiteKnight]) return true;
 
     //Checking sliding attacks
-    if (MoveGenerator::GetBishopAttack(square, occupancy_bitboard[Both]) & bishop_bits) return true;
-    if (MoveGenerator::GetRookAttack(square, occupancy_bitboard[Both]) & rook_bits) return true;
+    if (MoveGenerator::GetBishopAttack(square, occupancy_bitboard[Both]) & (piece_bitboard[offset + WhiteBishop] |
+                                                                            piece_bitboard[offset + WhiteQueen]))
+        return true;
+    if (MoveGenerator::GetRookAttack(square, occupancy_bitboard[Both]) & (piece_bitboard[offset + WhiteRook] |
+                                                                          piece_bitboard[offset + WhiteQueen]))
+        return true;
 
     //Checking king attack
-    if (MoveGenerator::GetKingAttack(square) & king_bits) return true;
+    if (MoveGenerator::GetKingAttack(square) & piece_bitboard[offset + WhiteKing]) return true;
 
     return false;
 }
@@ -506,7 +480,15 @@ void ChessBoard::ClearBoard() {
     board_state.turn_count = 0;
     board_state.half_clock = 0;
 }
-
+#ifdef NEW_POPULATE_MOVE_LIST_FUNCTION
+void ChessBoard::PopulateMoveList(MoveList &move_list) {
+    if (board_state.side_to_move == White) {
+        PopulateMove<White>(move_list);
+    } else {
+        PopulateMove<Black>(move_list);
+    }
+}
+#else
 void ChessBoard::PopulateMoveList(MoveList &move_list) {
     int source_square = 0;
     int target_square = 0;
@@ -646,7 +628,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                     bitboard.RemoveBit(source_square);
 
                     attack = MoveGenerator::GetKnightAttack(source_square);
-                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[board_state.side_to_move * 6 + WhiteKing]]);
+                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[
+                                    board_state.side_to_move * 6 + WhiteKing]]);
 
                     while (attack) {
                         target_square = attack.GetFirstLSBIndex();
@@ -666,7 +649,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                     bitboard.RemoveBit(source_square);
 
                     attack = MoveGenerator::GetBishopAttack(source_square, occupancy_bitboard[Both]);
-                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[board_state.side_to_move * 6 + WhiteKing]]);
+                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[
+                                    board_state.side_to_move * 6 + WhiteKing]]);
 
                     while (attack) {
                         target_square = attack.GetFirstLSBIndex();
@@ -686,7 +670,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                     bitboard.RemoveBit(source_square);
 
                     attack = MoveGenerator::GetRookAttack(source_square, occupancy_bitboard[Both]);
-                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[board_state.side_to_move * 6 + WhiteKing]]);
+                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[
+                                    board_state.side_to_move * 6 + WhiteKing]]);
 
                     while (attack) {
                         target_square = attack.GetFirstLSBIndex();
@@ -706,7 +691,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                     bitboard.RemoveBit(source_square);
 
                     attack = MoveGenerator::GetQueenAttack(source_square, occupancy_bitboard[Both]);
-                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[board_state.side_to_move * 6 + WhiteKing]]);
+                    attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[
+                                    board_state.side_to_move * 6 + WhiteKing]]);
 
                     while (attack) {
                         target_square = attack.GetFirstLSBIndex();
@@ -723,7 +709,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
             case 5:
                 source_square = bitboard.GetFirstLSBIndex();
                 attack = MoveGenerator::GetKingAttack(source_square);
-                attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[board_state.side_to_move * 6 + WhiteKing]]);
+                attack &= ~(occupancy_bitboard[board_state.side_to_move] | piece_bitboard[opposite_piece[
+                                board_state.side_to_move * 6 + WhiteKing]]);
 
                 while (attack) {
                     target_square = attack.GetFirstLSBIndex();
@@ -742,7 +729,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
 
                     if (board_state.castling_right & WhiteToQueen) {
                         bool no_attack = (!IsSquaredAttacked(c1, Black) && !IsSquaredAttacked(d1, Black));
-                        bool no_occupancy = ((mailbox[b1] == NoPiece) && (mailbox[c1] == NoPiece) && (mailbox[d1] == NoPiece));
+                        bool no_occupancy = ((mailbox[b1] == NoPiece) && (mailbox[c1] == NoPiece) && (
+                                                 mailbox[d1] == NoPiece));
                         bool rook_exist = (mailbox[a1] == WhiteRook);
                         if (no_attack && no_occupancy && rook_exist) {
                             move_list.AddMove(e1, c1, WhiteKing, NoPiece, NoPiece, false, false, true);
@@ -753,7 +741,7 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
                         bool no_attack = (!IsSquaredAttacked(f1, Black) && !IsSquaredAttacked(g1, Black));
                         bool no_occupancy = ((mailbox[f1] == NoPiece) && (mailbox[g1] == NoPiece));
                         bool rook_exist = (mailbox[h1] == WhiteRook);
-                        if (no_attack && no_occupancy && rook_exist){
+                        if (no_attack && no_occupancy && rook_exist) {
                             move_list.AddMove(e1, g1, WhiteKing, NoPiece, NoPiece, false, false, true);
                         }
                     }
@@ -768,7 +756,8 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
 
                     if (board_state.castling_right & BlackToQueen) {
                         bool no_attack = (!IsSquaredAttacked(c8, White) && !IsSquaredAttacked(d8, White));
-                        bool no_occupancy = (mailbox[b8] == NoPiece && (mailbox[c8] == NoPiece) && (mailbox[d8] == NoPiece));
+                        bool no_occupancy = (mailbox[b8] == NoPiece && (mailbox[c8] == NoPiece) && (
+                                                 mailbox[d8] == NoPiece));
                         bool rook_exist = (mailbox[a8] == BlackRook);
                         if (no_attack && no_occupancy && rook_exist) {
                             move_list.AddMove(e8, c8, BlackKing, NoPiece, NoPiece, false, false, true);
@@ -791,6 +780,7 @@ void ChessBoard::PopulateMoveList(MoveList &move_list) {
         }
     }
 }
+#endif
 
 ChessBoard::ChessBoard() {
     ParsePositionFromFEN(FEN_STARTING_POSITION);
@@ -821,4 +811,281 @@ Piece ChessBoard::CharToPieceIndex(char ch) {
 
 char ChessBoard::PieceToChar(int piece) {
     return piece_strings[piece];
+}
+
+template<Side side>
+void ChessBoard::PopulateMove(MoveList &move_list) {
+    constexpr Side opponent = opponent_side[side];
+
+    int source_square = 0;
+    int target_square = 0;
+
+    //Pre-allocate mem
+    Bitmap bitboard{};
+    Bitmap move_bitboard{};
+    Bitmap quiet_move{};
+    Bitmap capture_move{};
+
+    //King for not adding capture king move
+    constexpr Piece own_king = (side == White) ? WhiteKing : BlackKing;
+    constexpr Piece opponent_king = opposite_piece[own_king];
+
+    //Pawn
+    constexpr Piece own_pawn = (side == White) ? WhitePawn : BlackPawn;
+    constexpr Piece opponent_pawn = opposite_piece[own_pawn];
+
+    bitboard = piece_bitboard[own_pawn];
+    while (bitboard) {
+        source_square = bitboard.GetFirstLSBIndex();
+        bitboard.RemoveBit(source_square);
+        target_square = source_square + forward_pawn_offset[side];
+
+        if (mailbox[target_square] == NoPiece) {
+            move_bitboard.InsertBit(target_square);
+
+            //Double push
+            if (((1ULL << source_square) & pawn_start_rank[side]) &&
+                (mailbox[target_square + forward_pawn_offset[side]] == NoPiece)) {
+                move_list.AddMove(source_square, target_square + forward_pawn_offset[side], own_pawn, NoPiece,
+                                  NoPiece, true, false, false);
+            }
+        }
+
+        //Getting pawn attack
+        Bitmap pawn_attack = MoveGenerator::GetPawnAttack(source_square, side);
+
+        //Masking attack
+        move_bitboard |= (occupancy_bitboard[opponent] & pawn_attack & ~piece_bitboard[opponent_king]);
+
+        //En passant
+        if (board_state.en_passant != NoSquare && ((uint64_t) pawn_attack & (1ULL << board_state.en_passant))) {
+            move_list.AddMove(source_square, board_state.en_passant, own_pawn, NoPiece,
+                              opponent_pawn, false, true, false);
+        }
+
+        //Get promote target square
+        Bitmap promotion_move = (uint64_t) move_bitboard & promotion_zone[side];
+
+        //Get normal quiet move
+        move_bitboard ^= promotion_move;
+
+        //Normal quiet move
+        while (move_bitboard) {
+            target_square = move_bitboard.GetFirstLSBIndex();
+            move_bitboard.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_pawn, NoPiece, mailbox[target_square], false,
+                              false, false);
+        }
+
+        while (promotion_move) {
+            target_square = promotion_move.GetFirstLSBIndex();
+            promotion_move.RemoveBit(target_square);
+
+            for (int piece = own_pawn + 1; piece < own_pawn + 5; ++piece) {
+                move_list.AddMove(source_square, target_square, own_pawn, piece, mailbox[target_square],
+                                  false, false, false);
+            }
+        }
+    }
+
+    //Knight
+    constexpr Piece own_knight = (side == White) ? WhiteKnight : BlackKnight;
+    bitboard = piece_bitboard[own_knight];
+    while (bitboard) {
+        source_square = bitboard.GetFirstLSBIndex();
+        bitboard.RemoveBit(source_square);
+
+        move_bitboard = (MoveGenerator::GetKnightAttack(source_square)
+                         & ~occupancy_bitboard[side]
+                         & ~piece_bitboard[opponent_king]);
+
+        capture_move = move_bitboard & occupancy_bitboard[opponent];
+        quiet_move = move_bitboard ^ capture_move;
+
+        while (capture_move) {
+            target_square = capture_move.GetFirstLSBIndex();
+            capture_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_knight, NoPiece, mailbox[target_square], false, false,
+                              false);
+        }
+
+        while (quiet_move) {
+            target_square = quiet_move.GetFirstLSBIndex();
+            quiet_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_knight, NoPiece, NoPiece, false, false,
+                              false);
+        }
+    }
+
+    // Bishop
+    constexpr Piece own_bishop = (side == White) ? WhiteBishop : BlackBishop;
+    bitboard = piece_bitboard[own_bishop];
+    while (bitboard) {
+        source_square = bitboard.GetFirstLSBIndex();
+        bitboard.RemoveBit(source_square);
+
+        move_bitboard = (MoveGenerator::GetBishopAttack(source_square, occupancy_bitboard[Both])
+                         & ~occupancy_bitboard[side]
+                         & ~piece_bitboard[opponent_king]);
+
+        capture_move = move_bitboard & occupancy_bitboard[opponent];
+        quiet_move = move_bitboard ^ capture_move;
+        while (capture_move) {
+            target_square = capture_move.GetFirstLSBIndex();
+            capture_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_bishop, NoPiece, mailbox[target_square], false, false,
+                              false);
+        }
+
+        while (quiet_move) {
+            target_square = quiet_move.GetFirstLSBIndex();
+            quiet_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_bishop, NoPiece, NoPiece, false, false,
+                              false);
+        }
+    }
+
+    // Rook
+    constexpr Piece own_rook = (side == White) ? WhiteRook : BlackRook;
+    bitboard = piece_bitboard[own_rook];
+    while (bitboard) {
+        source_square = bitboard.GetFirstLSBIndex();
+        bitboard.RemoveBit(source_square);
+
+        move_bitboard = (MoveGenerator::GetRookAttack(source_square, occupancy_bitboard[Both])
+                         & ~occupancy_bitboard[side]
+                         & ~piece_bitboard[opponent_king]);
+
+        capture_move = move_bitboard & occupancy_bitboard[opponent];
+        quiet_move = move_bitboard ^ capture_move;
+        while (capture_move) {
+            target_square = capture_move.GetFirstLSBIndex();
+            capture_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_rook, NoPiece, mailbox[target_square], false, false,
+                              false);
+        }
+
+        while (quiet_move) {
+            target_square = quiet_move.GetFirstLSBIndex();
+            quiet_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_rook, NoPiece, NoPiece, false, false,
+                              false);
+        }
+    }
+
+    // Queen
+    constexpr Piece own_queen = (side == White) ? WhiteQueen : BlackQueen;
+    bitboard = piece_bitboard[own_queen];
+    while (bitboard) {
+        source_square = bitboard.GetFirstLSBIndex();
+        bitboard.RemoveBit(source_square);
+
+        move_bitboard = (MoveGenerator::GetQueenAttack(source_square, occupancy_bitboard[Both])
+                         & ~occupancy_bitboard[side]
+                         & ~piece_bitboard[opponent_king]);
+
+        capture_move = move_bitboard & occupancy_bitboard[opponent];
+        quiet_move = move_bitboard ^ capture_move;
+        while (capture_move) {
+            target_square = capture_move.GetFirstLSBIndex();
+            capture_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_queen, NoPiece, mailbox[target_square], false, false,
+                              false);
+        }
+
+        while (quiet_move) {
+            target_square = quiet_move.GetFirstLSBIndex();
+            quiet_move.RemoveBit(target_square);
+
+            move_list.AddMove(source_square, target_square, own_queen, NoPiece, NoPiece, false, false,
+                              false);
+        }
+    }
+
+    //King
+    bitboard = piece_bitboard[own_king];
+    source_square = bitboard.GetFirstLSBIndex();
+
+    move_bitboard = (MoveGenerator::GetKingAttack(source_square)
+                     & ~occupancy_bitboard[side]
+                     & ~piece_bitboard[opponent_king]);
+
+    capture_move = move_bitboard & occupancy_bitboard[opponent];
+    quiet_move = move_bitboard ^ capture_move;
+    while (capture_move) {
+        target_square = capture_move.GetFirstLSBIndex();
+        capture_move.RemoveBit(target_square);
+
+        move_list.AddMove(source_square, target_square, own_king, NoPiece, mailbox[target_square], false, false,
+                          false);
+    }
+
+    while (quiet_move) {
+        target_square = quiet_move.GetFirstLSBIndex();
+        quiet_move.RemoveBit(target_square);
+
+        move_list.AddMove(source_square, target_square, own_king, NoPiece, NoPiece, false, false,
+                          false);
+    }
+
+    //White castling
+    if constexpr (side == White) {
+        if (IsSquaredAttacked(source_square, Black)) {
+            return;
+        }
+
+        if (board_state.castling_right & WhiteToQueen) {
+            bool no_attack = (!IsSquaredAttacked(c1, Black) && !IsSquaredAttacked(d1, Black));
+            bool no_occupancy = ((mailbox[b1] == NoPiece) && (mailbox[c1] == NoPiece) && (
+                                     mailbox[d1] == NoPiece));
+            bool rook_exist = (mailbox[a1] == WhiteRook);
+            if (no_attack && no_occupancy && rook_exist) {
+                move_list.AddMove(e1, c1, WhiteKing, NoPiece, NoPiece, false, false, true);
+            }
+        }
+
+        if (board_state.castling_right & WhiteToKing) {
+            bool no_attack = (!IsSquaredAttacked(f1, Black) && !IsSquaredAttacked(g1, Black));
+            bool no_occupancy = ((mailbox[f1] == NoPiece) && (mailbox[g1] == NoPiece));
+            bool rook_exist = (mailbox[h1] == WhiteRook);
+            if (no_attack && no_occupancy && rook_exist) {
+                move_list.AddMove(e1, g1, WhiteKing, NoPiece, NoPiece, false, false, true);
+            }
+        }
+    }
+
+    //Black castling
+    else {
+        //King in check
+        if (IsSquaredAttacked(source_square, White)) {
+            return;
+        }
+
+        if (board_state.castling_right & BlackToQueen) {
+            bool no_attack = (!IsSquaredAttacked(c8, White) && !IsSquaredAttacked(d8, White));
+            bool no_occupancy = (mailbox[b8] == NoPiece && (mailbox[c8] == NoPiece) && (
+                                     mailbox[d8] == NoPiece));
+            bool rook_exist = (mailbox[a8] == BlackRook);
+            if (no_attack && no_occupancy && rook_exist) {
+                move_list.AddMove(e8, c8, BlackKing, NoPiece, NoPiece, false, false, true);
+            }
+        }
+
+        if (board_state.castling_right & BlackToKing) {
+            bool no_attack = (!IsSquaredAttacked(f8, White) && !IsSquaredAttacked(g8, White));
+            bool no_occupancy = ((mailbox[f8] == NoPiece) && (mailbox[g8] == NoPiece));
+            bool rook_exist = (mailbox[h8] == BlackRook);
+            if (no_attack && no_occupancy && rook_exist) {
+                move_list.AddMove(e8, g8, BlackKing, NoPiece, NoPiece, false, false, true);
+            }
+        }
+    }
 }

@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "ChessBoard.h"
+// #define EXTRA_INFO
 
 class PerformanceTest {
 public:
@@ -22,6 +23,8 @@ public:
 
 private:
     static void RunDriverHelper(ChessBoard &board, int depth);
+
+    static int depth_test;
 
     static uint64_t nodes;
     static uint64_t castle_count;
