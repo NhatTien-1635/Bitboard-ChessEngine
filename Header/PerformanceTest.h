@@ -6,6 +6,7 @@
 #define BITMAPMANIPULATOR_PERFORMANCETEST_H
 
 #include <chrono>
+#include <windows.h>
 #include <iostream>
 
 #include "ChessBoard.h"

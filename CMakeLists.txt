@@ -16,6 +16,10 @@ add_executable(BitmapManipulator Source/main.cpp
         Header/MoveList.h
         Source/PerformanceTest.cpp
         Header/PerformanceTest.h
+        Source/Evaluator.cpp
+        Header/Evaluator.h
+        Source/Engine.cpp
+        Header/Engine.h
         #        Source/MagicNumberGenerator.cpp
 #        Header/MagicNumberGenerator.h
 )

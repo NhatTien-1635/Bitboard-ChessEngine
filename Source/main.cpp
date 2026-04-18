@@ -5,21 +5,26 @@
 #include "../Header/ChessBoard.h"
 #include "../Header/MoveList.h"
 #include "../Header/PerformanceTest.h"
+#include "../Header/Evaluator.h"
 
 #include <random>
 
-#define FEN_TEST_POSITION "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 "
+#define FEN_TEST_POSITION "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
 
 
 int main() {
     MoveGenerator::InitGenerator();
+    Evaluator::InitializeEvaluationTable();
 
-    ChessBoard chess_board(FEN_STARTING_POSITION);
+    ChessBoard chess_board(FEN_TRICKY_POSITION);
     chess_board.PrintBoard();
-    PerformanceTest perft_test;
 
-    perft_test.RunDriver(chess_board, 7);
-    perft_test.PrintResult();
+    std::cout << "Evaluated value: " << Evaluator::EvaluatePosition(chess_board);
+
+    // PerformanceTest perft_test;
+
+    // perft_test.RunDriver(chess_board, 5);
+    // perft_test.PrintResult();
 
     // MoveList move_list;
     // chess_board.PopulateMoveList(move_list);

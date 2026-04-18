@@ -69,26 +69,16 @@ public:
 
     void ParsePositionFromFEN(std::string_view position);
 
-    //TODO: Refactor for optimization
-    // template<Side side>
     bool MakeQuietMove(int encoded_move);
 
-    //TODO: Refactor for optimization
-    // template<Side side>
     bool MakeCaptureMove(int encoded_move);
 
-    //TODO: Refactor for optimization
-    // template<Side side>
     void UnmakeMove(int encoded_move);
 
     //Return if the square is attacked by the opposite color
     bool IsSquaredAttacked(uint8_t square, uint8_t attacker) const;
 
-    //TODO: Refactor for optimization
     void PopulateMoveList(MoveList &move_list);
-
-    template<Side side>
-    void PopulateMove(MoveList& move_list);
 
     ChessBoard();
 
@@ -96,18 +86,40 @@ public:
 
     ~ChessBoard() = default;
 
-    //Private later
-public:
-    Bitmap GetPieceBitmap(int piece) const;
+    Bitmap GetPieceBitmap(int piece) const { return piece_bitboard[piece]; }
 
-    Piece At(int index) const;
+    Piece At(int index) const { return (Piece) mailbox[index]; }
+
+    Side CurrentSide() const { return (Side) board_state.side_to_move; }
 
     void ClearBoard();
 
-    // private:
     static Piece CharToPieceIndex(char str);
 
     static char PieceToChar(int piece);
+
+    static int GetFlippedSquare(int square) { return square ^ 56; }    //Black magic ts oooooo
+
+private:
+    template<Side side>
+    void PopulateMove(MoveList &move_list);
+
+public:
+    static constexpr Side opponent_side[2] = {Black, White};
+    static constexpr Piece opposite_piece[12] = {
+        BlackPawn,
+        BlackKnight,
+        BlackBishop,
+        BlackRook,
+        BlackQueen,
+        BlackKing,
+        WhitePawn,
+        WhiteKnight,
+        WhiteBishop,
+        WhiteRook,
+        WhiteQueen,
+        WhiteKing
+    };
 
 private:
     uint8_t mailbox[64];
@@ -126,28 +138,15 @@ private:
      * q = Queen
      * k = Knight
      */
-    static constexpr Side opponent_side[2] = {Black, White};
-    static constexpr Piece opposite_piece[12] = {
-        BlackPawn,
-        BlackKnight,
-        BlackBishop,
-        BlackRook,
-        BlackQueen,
-        BlackKing,
-        WhitePawn,
-        WhiteKnight,
-        WhiteBishop,
-        WhiteRook,
-        WhiteQueen,
-        WhiteKing
-    };
+
     static constexpr char piece_strings[13] = {'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k', '.'};
-    static const uint8_t castling_right_mask[64];
+    static constexpr uint8_t castling_right_mask[64] = {
+#include "../Data/CastlingRightMatrix.dat"
+    };
 
     static constexpr int forward_pawn_offset[2] = {-8, 8};
     static constexpr uint64_t promotion_zone[2] = {0xFFULL, 0xFFULL << (8 * 7)};
     static constexpr uint64_t pawn_start_rank[2] = {0xFFULL << (8 * 6), 0xFFULL << (8 * 1)};
 };
-
 
 #endif //BITMAPMANIPULATOR_CHESSBOARD_H
