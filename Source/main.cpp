@@ -6,10 +6,11 @@
 #include "../Header/MoveList.h"
 #include "../Header/PerformanceTest.h"
 #include "../Header/Evaluator.h"
+#include "../Header/Engine.h"
 
 #include <random>
 
-#define FEN_TEST_POSITION "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"
+#define FEN_TEST_POSITION "k7/8/K7/8/8/8/8/4Q3 w - - 0 0"
 
 
 int main() {
@@ -19,7 +20,20 @@ int main() {
     ChessBoard chess_board(FEN_TRICKY_POSITION);
     chess_board.PrintBoard();
 
-    std::cout << "Evaluated value: " << Evaluator::EvaluatePosition(chess_board);
+    // MoveList move_list;
+    // chess_board.PopulateMoveList(move_list);
+    // Engine::PrintScoreMoves(move_list);
+    //
+    // std::cout << "=====================================\n";
+    //
+    // move_list.ClearList();
+    // chess_board.PopulateCaptureMoveList(move_list);
+    // Engine::PrintScoreMoves(move_list);
+
+    std::cout << MoveList::FormatMoveToString(0, Engine::GetBestMove(chess_board, 5));
+    // Beep(750, 800);
+
+    // std::cout << "Evaluated value: " << Evaluator::EvaluatePosition(chess_board);
 
     // PerformanceTest perft_test;
 

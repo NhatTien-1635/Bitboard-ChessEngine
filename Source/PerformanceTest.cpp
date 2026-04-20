@@ -45,7 +45,7 @@ void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
         int legal_moves = 0;
         for (int i = 0; i < move_list.GetMoveCount(); ++i) {
             int encoded_move = move_list.GetMove(i);
-            if (board.MakeQuietMove(move_list.GetMove(i))) {
+            if (board.MakeMove(move_list.GetMove(i))) {
                 ++legal_moves;
 
 #ifdef EXTRA_INFO
@@ -76,7 +76,7 @@ void PerformanceTest::RunDriverHelper(ChessBoard &board, int depth) {
 
     for (int index = 0; index < move_list.GetMoveCount(); ++index) {
         int encoded_move = move_list.GetMove(index);
-        if (!board.MakeQuietMove(encoded_move)) {
+        if (!board.MakeMove(encoded_move)) {
             continue;
         }
         RunDriverHelper(board, depth - 1);

@@ -69,7 +69,7 @@ public:
 
     void ParsePositionFromFEN(std::string_view position);
 
-    bool MakeQuietMove(int encoded_move);
+    bool MakeMove(int encoded_move);
 
     bool MakeCaptureMove(int encoded_move);
 
@@ -78,7 +78,12 @@ public:
     //Return if the square is attacked by the opposite color
     bool IsSquaredAttacked(uint8_t square, uint8_t attacker) const;
 
+    //Return a bitmap contain the all the piece that is attacking the square
+    Bitmap GetAttackerToSquare(uint8_t square, uint8_t attacker) const;
+
     void PopulateMoveList(MoveList &move_list);
+
+    void PopulateCaptureMoveList(MoveList &move_list);
 
     ChessBoard();
 
@@ -92,17 +97,22 @@ public:
 
     Side CurrentSide() const { return (Side) board_state.side_to_move; }
 
+    bool IsKingInCheck() const { return IsSquaredAttacked( piece_bitboard[board_state.side_to_move * 6 + WhiteKing].GetFirstLSBIndex(), opponent_side[board_state.side_to_move]); }
+
     void ClearBoard();
 
     static Piece CharToPieceIndex(char str);
 
     static char PieceToChar(int piece);
 
-    static int GetFlippedSquare(int square) { return square ^ 56; }    //Black magic ts oooooo
+    static int GetFlippedSquare(int square) { return square ^ 56; } //Black magic ts oooooo
 
 private:
     template<Side side>
     void PopulateMove(MoveList &move_list);
+
+    template<Side side>
+    void PopulateCaptureMove(MoveList& move_list);
 
 public:
     static constexpr Side opponent_side[2] = {Black, White};
@@ -148,5 +158,6 @@ private:
     static constexpr uint64_t promotion_zone[2] = {0xFFULL, 0xFFULL << (8 * 7)};
     static constexpr uint64_t pawn_start_rank[2] = {0xFFULL << (8 * 6), 0xFFULL << (8 * 1)};
 };
+
 
 #endif //BITMAPMANIPULATOR_CHESSBOARD_H

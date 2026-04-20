@@ -55,6 +55,8 @@ public:
     inline void AddMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece, int double_push_flag, int enpassant_flag, int castling_flag);
     inline int GetMove(int index) const;
     inline int GetMoveCount() const;
+    inline void Swap(int src, int tar);
+    inline void PopBack(){ --count; };
 
     MoveList() = default;
     ~MoveList() = default;
@@ -144,6 +146,11 @@ int MoveList::GetMoveCount() const {
     return count;
 }
 
+void MoveList::Swap(int src, int tar) {
+    int temp = move_list[src];
+    move_list[src] = move_list[tar];
+    move_list[tar] = temp;
+}
 
 
 

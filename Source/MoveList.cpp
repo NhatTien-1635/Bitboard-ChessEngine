@@ -8,14 +8,14 @@ void MoveList::PrintList() {
     std::ios_base::fmtflags original_flags = std::cout.flags();
 
     std::cout << std::left
-              << std::setw(5)  << "ID"
-              << std::setw(10) << "Move"
-              << std::setw(10) << "Piece"
-              << std::setw(12) << "Promotion"
-              << std::setw(10) << "Capture"
-              << std::setw(12) << "Double"
-              << std::setw(12) << "Enpassant"
-              << std::setw(10) << "Castle\n";
+            << std::setw(5) << "ID"
+            << std::setw(10) << "Move"
+            << std::setw(10) << "Piece"
+            << std::setw(12) << "Promotion"
+            << std::setw(10) << "Capture"
+            << std::setw(12) << "Double"
+            << std::setw(12) << "Enpassant"
+            << std::setw(10) << "Castle\n";
 
     std::cout << std::string(85, '-') << '\n';
 
@@ -26,6 +26,7 @@ void MoveList::PrintList() {
     std::cout << "\nMove count: " << count << '\n';
     std::cout.flags(original_flags);
 }
+
 //
 // int MoveList::EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
 //                          int double_push_flag, int enpassant_flag, int castling_flag) {

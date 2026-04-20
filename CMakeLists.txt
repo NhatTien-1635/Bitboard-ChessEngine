@@ -20,6 +20,8 @@ add_executable(BitmapManipulator Source/main.cpp
         Header/Evaluator.h
         Source/Engine.cpp
         Header/Engine.h
+        Source/Game.cpp
+        Header/Game.h
         #        Source/MagicNumberGenerator.cpp
 #        Header/MagicNumberGenerator.h
 )
