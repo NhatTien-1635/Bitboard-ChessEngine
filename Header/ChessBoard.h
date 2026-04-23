@@ -10,13 +10,16 @@
 #include <string.h>
 
 #include "MoveGenerator.h"
-#include "MoveList.h"
+#include "TranspositionTable.h"
+
+class TranspositionTable;
 
 /**
  *  FEN Position
  *  Reference: https://www.chessprogramming.org/Forsyth-Edwards_Notation
  */
 
+#define HASH_KEY_DEBUG
 #define NEW_POPULATE_MOVE_LIST_FUNCTION
 
 //Debug test
@@ -59,6 +62,8 @@ struct BoardState {
 
     uint32_t turn_count = 0;
     uint32_t half_clock = 0;
+
+    uint64_t hash_key = 0;
 };
 
 class ChessBoard {
@@ -78,8 +83,7 @@ public:
     //Return if the square is attacked by the opposite color
     bool IsSquaredAttacked(uint8_t square, uint8_t attacker) const;
 
-    //Return a bitmap contain the all the piece that is attacking the square
-    Bitmap GetAttackerToSquare(uint8_t square, uint8_t attacker) const;
+    int GetWeakestAttackerSquare(uint8_t square, uint8_t attacker, const Bitmap &occupancy) const;
 
     void PopulateMoveList(MoveList &move_list);
 
@@ -93,11 +97,20 @@ public:
 
     Bitmap GetPieceBitmap(int piece) const { return piece_bitboard[piece]; }
 
+    Bitmap GetOccupancyBitboard(Side side) const { return occupancy_bitboard[side]; };
+
     Piece At(int index) const { return (Piece) mailbox[index]; }
+
+    Square GetEnpassantSquare() const { return (Square)board_state.en_passant; }
+
+    CastlingRight GetCastlingRight() const { return (CastlingRight)board_state.castling_right; }
 
     Side CurrentSide() const { return (Side) board_state.side_to_move; }
 
-    bool IsKingInCheck() const { return IsSquaredAttacked( piece_bitboard[board_state.side_to_move * 6 + WhiteKing].GetFirstLSBIndex(), opponent_side[board_state.side_to_move]); }
+    bool IsKingInCheck() const {
+        return IsSquaredAttacked(piece_bitboard[board_state.side_to_move * 6 + WhiteKing].GetFirstLSBIndex(),
+                                 opponent_side[board_state.side_to_move]);
+    }
 
     void ClearBoard();
 
@@ -112,7 +125,7 @@ private:
     void PopulateMove(MoveList &move_list);
 
     template<Side side>
-    void PopulateCaptureMove(MoveList& move_list);
+    void PopulateCaptureMove(MoveList &move_list);
 
 public:
     static constexpr Side opponent_side[2] = {Black, White};
@@ -158,6 +171,139 @@ private:
     static constexpr uint64_t promotion_zone[2] = {0xFFULL, 0xFFULL << (8 * 7)};
     static constexpr uint64_t pawn_start_rank[2] = {0xFFULL << (8 * 6), 0xFFULL << (8 * 1)};
 };
+
+#define ENCODE_SOURCE_SQUARE_OFFSET     0
+#define ENCODE_TARGET_SQUARE_OFFSET     6
+#define ENCODE_PIECE_OFFSET             12
+#define ENCODE_CAPTURED_PIECE_OFFSET    16
+#define ENCODE_PROMOTED_PIECE_OFFSET    20
+#define ENCODE_DOUBLE_PUSH_FLAG_OFFSET  24
+#define ENCODE_ENPASSANT_FLAG_OFFSET    25
+#define ENCODE_CASTLING_FLAG_OFFSET     26
+
+#define DECODE_SOURCE_SQUARE_MASK     ((uint64_t)0x3F << ENCODE_SOURCE_SQUARE_OFFSET)
+#define DECODE_TARGET_SQUARE_MASK     ((uint64_t)0x3F << ENCODE_TARGET_SQUARE_OFFSET)
+#define DECODE_PIECE_MASK             ((uint64_t)0xF  << ENCODE_PIECE_OFFSET)
+#define DECODE_CAPTURED_PIECE_MASK    ((uint64_t)0xF  << ENCODE_CAPTURED_PIECE_OFFSET)
+#define DECODE_PROMOTED_PIECE_MASK    ((uint64_t)0xF  << ENCODE_PROMOTED_PIECE_OFFSET)
+#define DECODE_DOUBLE_PUSH_FLAG_MASK  ((uint64_t)0x1  << ENCODE_DOUBLE_PUSH_FLAG_OFFSET)
+#define DECODE_ENPASSANT_FLAG_MASK    ((uint64_t)0x1  << ENCODE_ENPASSANT_FLAG_OFFSET)
+#define DECODE_CASTLING_FLAG_MASK     ((uint64_t)0x1  << ENCODE_CASTLING_FLAG_OFFSET)
+
+class MoveList {
+public:
+    void PrintList();
+
+    inline static int EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece, int double_push_flag, int enpassant_flag, int castling_flag);
+    inline static Square DecodeGetSourceSquare(int move);
+    inline static Square DecodeGetTargetSquare(int move);
+    inline static Piece DecodeGetPiece(int move);
+    inline static Piece DecodeGetPromotedPiece(int move);
+    inline static Piece DecodeGetCapturePiece(int move);
+    inline static bool DecodeGetDoublePushFlag(int move);
+    inline static bool DecodeGetEnpassantFlag(int move);
+    inline static bool DecodeGetCastlingFlag(int move);
+    inline void ClearList();
+    inline void AddMove(int move);
+    inline void AddMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece, int double_push_flag, int enpassant_flag, int castling_flag);
+    inline int GetMove(int index) const;
+    inline int GetMoveCount() const;
+    inline void Swap(int src, int tar);
+    inline void PopBack(){ --count; };
+
+    MoveList() = default;
+    ~MoveList() = default;
+
+// private:
+    static std::string FormatMoveToString(int index, int move);
+
+private:
+    int move_list[256];
+    int count = 0;
+
+
+};
+
+//
+// Created by Hi on 4/2/2026.
+//
+
+int MoveList::EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
+                         int double_push_flag, int enpassant_flag, int castling_flag) {
+    uint64_t encoded_move = 0ULL;
+
+    encoded_move |= source_square;
+    encoded_move |= (target_square << ENCODE_TARGET_SQUARE_OFFSET);
+    encoded_move |= (piece << ENCODE_PIECE_OFFSET);
+    encoded_move |= (promoted_piece << ENCODE_PROMOTED_PIECE_OFFSET);
+    encoded_move |= (captured_piece << ENCODE_CAPTURED_PIECE_OFFSET);
+    encoded_move |= (double_push_flag << ENCODE_DOUBLE_PUSH_FLAG_OFFSET);
+    encoded_move |= (enpassant_flag << ENCODE_ENPASSANT_FLAG_OFFSET);
+    encoded_move |= (castling_flag << ENCODE_CASTLING_FLAG_OFFSET);
+
+    return encoded_move;
+}
+
+Square MoveList::DecodeGetSourceSquare(int move) {
+    return (Square) (move & DECODE_SOURCE_SQUARE_MASK);
+}
+
+Square MoveList::DecodeGetTargetSquare(int move) {
+    return (Square) ((move & DECODE_TARGET_SQUARE_MASK) >> ENCODE_TARGET_SQUARE_OFFSET);
+}
+
+Piece MoveList::DecodeGetPiece(int move) {
+    return (Piece) ((move & DECODE_PIECE_MASK) >> ENCODE_PIECE_OFFSET);
+}
+
+Piece MoveList::DecodeGetPromotedPiece(int move) {
+    return (Piece) ((move & DECODE_PROMOTED_PIECE_MASK) >> ENCODE_PROMOTED_PIECE_OFFSET);
+}
+
+Piece MoveList::DecodeGetCapturePiece(int move) {
+    return (Piece) ((move & DECODE_CAPTURED_PIECE_MASK) >> ENCODE_CAPTURED_PIECE_OFFSET);
+}
+
+bool MoveList::DecodeGetDoublePushFlag(int move) {
+    return (move & DECODE_DOUBLE_PUSH_FLAG_MASK);
+}
+
+bool MoveList::DecodeGetEnpassantFlag(int move) {
+    return (move & DECODE_ENPASSANT_FLAG_MASK);
+}
+
+bool MoveList::DecodeGetCastlingFlag(int move) {
+    return (move & DECODE_CASTLING_FLAG_MASK);
+}
+
+void MoveList::ClearList() {
+    memset(move_list, 0, sizeof(int) * 256);
+    count = 0;
+}
+
+void MoveList::AddMove(int move) {
+    move_list[count++] = move;
+}
+
+void MoveList::AddMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
+                       int double_push_flag, int enpassant_flag, int castling_flag) {
+    AddMove(EncodeMove(source_square, target_square, piece, promoted_piece, captured_piece, double_push_flag,
+                       enpassant_flag, castling_flag));
+}
+
+int MoveList::GetMove(int index) const {
+    return move_list[index];
+}
+
+int MoveList::GetMoveCount() const {
+    return count;
+}
+
+void MoveList::Swap(int src, int tar) {
+    int temp = move_list[src];
+    move_list[src] = move_list[tar];
+    move_list[tar] = temp;
+}
 
 
 #endif //BITMAPMANIPULATOR_CHESSBOARD_H

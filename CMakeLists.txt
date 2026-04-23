@@ -13,7 +13,6 @@ add_executable(BitmapManipulator Source/main.cpp
         Source/ChessBoard.cpp
         Header/ChessBoard.h
         Source/MoveList.cpp
-        Header/MoveList.h
         Source/PerformanceTest.cpp
         Header/PerformanceTest.h
         Source/Evaluator.cpp
@@ -22,6 +21,8 @@ add_executable(BitmapManipulator Source/main.cpp
         Header/Engine.h
         Source/Game.cpp
         Header/Game.h
+        Source/TranspositionTable.cpp
+        Header/TranspositionTable.h
         #        Source/MagicNumberGenerator.cpp
 #        Header/MagicNumberGenerator.h
 )

@@ -22,14 +22,14 @@ int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
     return best_move;
 }
 
-void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard& chess_board) {
+void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_board) {
     for (int index = 0; index < move_list.GetMoveCount(); ++index) {
         int move = move_list.GetMove(index);
         std::cout << "Move: ";
         std::cout << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(move));
         std::cout << MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(move));
         std::cout << ", Score: ";
-        std::cout << ScoreMove(move, chess_board) << '\n';
+        std::cout << Evaluator::ScoreMove(move, chess_board) << '\n';
     }
 }
 
@@ -52,11 +52,11 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     int legal_move = 0;
     chess_board.PopulateMoveList(move_list);
 
-    // while (move_list.GetMoveCount() > 0) {
-    //     int move = SelectBestMove(move_list, chess_board);
+    while (move_list.GetMoveCount() > 0) {
+        int move = Evaluator::SelectBestMove(move_list, chess_board);
 
-    for (int index = 0; index < move_list.GetMoveCount(); ++index) {
-        int move = move_list.GetMove(index);
+        // for (int index = 0; index < move_list.GetMoveCount(); ++index) {
+        //     int move = move_list.GetMove(index);
 
         if (!chess_board.MakeMove(move)) {
             continue;
@@ -120,11 +120,11 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
     MoveList move_list;
     chess_board.PopulateCaptureMoveList(move_list);
 
-    // while (move_list.GetMoveCount() > 0) {
-    // int move = SelectBestMove(move_list, chess_board);
+    while (move_list.GetMoveCount() > 0) {
+        int move = Evaluator::SelectBestMove(move_list, chess_board);
 
-    for (int index = 0; index < move_list.GetMoveCount(); ++index) {
-        int move = move_list.GetMove(index);
+        // for (int index = 0; index < move_list.GetMoveCount(); ++index) {
+        //     int move = move_list.GetMove(index);
         if (!chess_board.MakeCaptureMove(move)) {
             continue;
         }
@@ -147,32 +147,4 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
 
     //Node (move) fail low
     return alpha;
-}
-
-int Engine::SelectBestMove(MoveList &move_list, const ChessBoard& chess_board) {
-    int move_count = move_list.GetMoveCount();
-    int best_index = 0;
-    int max_score = -100000;
-
-    for (int i = 0; i < move_count; ++i) {
-        int current_score = ScoreMove(move_list.GetMove(i), chess_board);
-        if (current_score > max_score) {
-            max_score = current_score;
-            best_index = i;
-        }
-    }
-
-    move_list.Swap(best_index, move_count - 1);
-
-    int move = move_list.GetMove(move_count - 1);
-    move_list.PopBack();
-    return move;
-}
-
-int Engine::ScoreMove(int encoded_move, const ChessBoard &chess_board) {
-    if (MoveList::DecodeGetCapturePiece(encoded_move) == NoPiece) {
-        return 0;
-    }
-
-    return mvv_laa_table[MoveList::DecodeGetPiece(encoded_move) % 6][MoveList::DecodeGetCapturePiece(encoded_move) % 6];
 }

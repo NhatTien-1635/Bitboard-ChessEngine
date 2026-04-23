@@ -3,7 +3,6 @@
 //
 
 #include "../Header/ChessBoard.h"
-#include "../Header/MoveList.h"
 
 void ChessBoard::PrintBoard() const {
     std::cout << std::setw(4) << "   a   b   c   d   e   f   g   h\n";
@@ -190,10 +189,12 @@ bool ChessBoard::MakeMove(int encoded_move) {
     piece_bitboard[piece].InsertBit(target_square);
     occupancy_bitboard[board_state.side_to_move].InsertBit(target_square);
     mailbox[target_square] = piece;
+    TranspositionTable::UpdatePiece(piece, target_square);
 
     piece_bitboard[piece].RemoveBit(source_square);
     occupancy_bitboard[board_state.side_to_move].RemoveBit(source_square);
     mailbox[source_square] = NoPiece;
+    TranspositionTable::UpdatePiece(piece, source_square);
 
     //Capture
     Piece capture_piece = MoveList::DecodeGetCapturePiece(encoded_move);
@@ -201,6 +202,7 @@ bool ChessBoard::MakeMove(int encoded_move) {
     if (capture_piece != NoPiece && !en_passant) {
         piece_bitboard[capture_piece].RemoveBit(target_square);
         occupancy_bitboard[opponent_side[board_state.side_to_move]].RemoveBit(target_square);
+        TranspositionTable::UpdatePiece(capture_piece, target_square);
     }
 
     //En passant
@@ -211,23 +213,36 @@ bool ChessBoard::MakeMove(int encoded_move) {
         piece_bitboard[pawn].RemoveBit(target_square + forward_pawn_offset[opponent]);
         occupancy_bitboard[opponent].RemoveBit(target_square + forward_pawn_offset[opponent]);
         mailbox[target_square + forward_pawn_offset[opponent]] = NoPiece;
+        TranspositionTable::UpdatePiece(pawn, target_square + forward_pawn_offset[opponent]);
     }
 
     //Promotion
     Piece promoted_piece = MoveList::DecodeGetPromotedPiece(encoded_move);
     if (promoted_piece != NoPiece) {
         piece_bitboard[piece].RemoveBit(target_square);
+        TranspositionTable::UpdatePiece(piece, target_square);
+
         piece_bitboard[promoted_piece].InsertBit(target_square);
+        TranspositionTable::UpdatePiece(promoted_piece, target_square);
 
         mailbox[target_square] = promoted_piece;
     }
+
+
+    //Remove enpassant key;
+    if (board_state.en_passant != NoSquare) {
+        TranspositionTable::UpdateEnpassant(board_state.en_passant);
+    }
+
+    //Reset enpassant
+    board_state.en_passant = NoSquare;
 
     //Double
     bool double_push = MoveList::DecodeGetDoublePushFlag(encoded_move);
     if (double_push) {
         board_state.en_passant = (target_square + forward_pawn_offset[opponent_side[board_state.side_to_move]]);
+        TranspositionTable::UpdateEnpassant(target_square + forward_pawn_offset[opponent_side[board_state.side_to_move]]);
     }
-
 
     //Castle
     bool castling = MoveList::DecodeGetCastlingFlag(encoded_move);
@@ -272,6 +287,9 @@ bool ChessBoard::MakeMove(int encoded_move) {
 
         mailbox[rook_source] = NoPiece;
         mailbox[rook_target] = rook;
+
+        TranspositionTable::UpdatePiece(rook, rook_source);
+        TranspositionTable::UpdatePiece(rook, rook_target);
     }
 
     //Update occupancy bitboard
@@ -279,14 +297,28 @@ bool ChessBoard::MakeMove(int encoded_move) {
 
     //Update side to move
     board_state.side_to_move = opponent_side[board_state.side_to_move];
-
-    //Update square to move if not double push
-    if (!double_push) {
-        board_state.en_passant = NoSquare;
-    }
+    TranspositionTable::UpdateSide();
 
     //Update castling
+    TranspositionTable::UpdateCastling(board_state.castling_right);
     board_state.castling_right &= (castling_right_mask[source_square] & castling_right_mask[target_square]);
+    TranspositionTable::UpdateCastling(board_state.castling_right);
+
+    //Update hash key
+    board_state.hash_key = TranspositionTable::GetKey();
+
+    //Debug stuff
+#ifdef HASH_KEY_DEBUG
+    uint64_t scratch_key = TranspositionTable::GenerateKey(*this);
+    if (board_state.hash_key != scratch_key) {
+        std::cout << "Move: " << MoveGenerator::SquareToString(source_square) <<
+                MoveGenerator::SquareToString(target_square) << '\n';
+        PrintBoard();
+        std::cout << "Current key: " << board_state.hash_key << '\n';
+        std::cout << "Correct key: " << scratch_key << '\n';
+        std::cin.get();
+    }
+#endif
 
     //Update turn count
     if (board_state.side_to_move == White) {
@@ -326,6 +358,7 @@ bool ChessBoard::MakeCaptureMove(int encoded_move) {
 void ChessBoard::UnmakeMove(int encoded_move) {
     //Restore game state
     board_state = std::move(history[--game_ply]);
+    TranspositionTable::SetKey(board_state.hash_key);
 
     Square source_square = MoveList::DecodeGetSourceSquare(encoded_move);
     Square target_square = MoveList::DecodeGetTargetSquare(encoded_move);
@@ -444,23 +477,36 @@ bool ChessBoard::IsSquaredAttacked(uint8_t square, uint8_t attacker) const {
     return false;
 }
 
-Bitmap ChessBoard::GetAttackerToSquare(uint8_t square, uint8_t attacker) const {
+int ChessBoard::GetWeakestAttackerSquare(uint8_t square, uint8_t attacker, const Bitmap &occupancy) const {
     int offset = 6 * attacker;
-
     Bitmap attack;
 
     Side victim_side = opponent_side[attacker];
-    attack |= (MoveGenerator::GetPawnAttack(square, victim_side) & piece_bitboard[offset + WhitePawn]);
-    attack |= (MoveGenerator::GetKnightAttack(square) & piece_bitboard[offset + WhiteKnight]);
-    attack |= (MoveGenerator::GetBishopAttack(square, occupancy_bitboard[Both]) & (piece_bitboard[offset + WhiteBishop] | piece_bitboard[offset + WhiteQueen]));
-    attack |= (MoveGenerator::GetRookAttack(square, occupancy_bitboard[Both]) & (piece_bitboard[offset + WhiteRook] | piece_bitboard[offset + WhiteQueen]));
-    attack |= (MoveGenerator::GetKingAttack(square) & piece_bitboard[offset + WhiteKing]);
+    attack = (MoveGenerator::GetPawnAttack(square, victim_side) & piece_bitboard[offset + WhitePawn] & occupancy);
+    if (attack) return attack.GetFirstLSBIndex();
 
-    return attack;
+    attack = (MoveGenerator::GetKnightAttack(square) & piece_bitboard[offset + WhiteKnight] & occupancy);
+    if (attack) return attack.GetFirstLSBIndex();
+
+    attack = (MoveGenerator::GetBishopAttack(square, occupancy) & piece_bitboard[offset + WhiteBishop] & occupancy);
+    if (attack) return attack.GetFirstLSBIndex();
+
+    attack = (MoveGenerator::GetRookAttack(square, occupancy) & piece_bitboard[offset + WhiteRook] & occupancy);
+    if (attack) return attack.GetFirstLSBIndex();
+
+    attack = (MoveGenerator::GetQueenAttack(square, occupancy) & piece_bitboard[offset + WhiteQueen] & occupancy);
+    if (attack) return attack.GetFirstLSBIndex();
+
+    attack = (MoveGenerator::GetKingAttack(square) & piece_bitboard[offset + WhiteKing]);
+    if (attack) return attack.GetFirstLSBIndex();
+
+    return NoSquare;
 }
 
 ChessBoard::ChessBoard(const std::string_view &FEN) {
     ParsePositionFromFEN(FEN);
+    board_state.hash_key = TranspositionTable::GenerateKey(*this);
+    TranspositionTable::SetKey(TranspositionTable::GenerateKey(*this));
 }
 
 void ChessBoard::ClearBoard() {
@@ -501,6 +547,8 @@ void ChessBoard::PopulateCaptureMoveList(MoveList &move_list) {
 
 ChessBoard::ChessBoard() {
     ParsePositionFromFEN(FEN_STARTING_POSITION);
+    board_state.hash_key = TranspositionTable::GenerateKey(*this);
+    TranspositionTable::SetKey(TranspositionTable::GenerateKey(*this));
 }
 
 Piece ChessBoard::CharToPieceIndex(char ch) {

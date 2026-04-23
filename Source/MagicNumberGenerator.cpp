@@ -102,6 +102,5 @@ uint64_t MagicNumberGenerator::GenerateRandomNumber64Bit() {
     std::random_device rd;
     std::mt19937_64 gen(rd());
     std::uniform_int_distribution<std::uint64_t> dis;
-
     return dis(gen);
 }

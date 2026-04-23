@@ -2,7 +2,7 @@
 // Created by Hi on 4/2/2026.
 //
 
-#include "../Header/MoveList.h"
+#include "../Header/ChessBoard.h"
 
 void MoveList::PrintList() {
     std::ios_base::fmtflags original_flags = std::cout.flags();

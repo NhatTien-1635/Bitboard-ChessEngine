@@ -10,11 +10,21 @@
 class Evaluator {
 public:
     static void InitializeEvaluationTable();
-    static int EvaluatePosition(const ChessBoard& chess_board);
+
+    static int EvaluatePosition(const ChessBoard &chess_board);
+
+    //Return the best captured move in the list. then it remove it out of the list.
+    static int SelectBestMove(MoveList &move_list, const ChessBoard &chess_board);
+
+    static int ScoreMove(int encoded_move, const ChessBoard &chess_board);
 
 public:
     Evaluator() = delete;
+
     ~Evaluator() = default;
+
+private:
+    static int GetScoreSEE(int encoded_move, const ChessBoard &chess_board);
 
     /**
      *  All value were taken from Chess Programming WIKI
@@ -28,6 +38,12 @@ private:
 
     static constexpr int midgame_value[6] = {82, 337, 365, 477, 1025, 0};
     static constexpr int endgame_value[6] = {94, 281, 297, 512, 936, 0};
+
+    static constexpr int see_piece_value[6] = {100, 300, 300, 500, 900, 40000};
+
+    static constexpr int mvv_laa_table[6][6] = {
+#include "../Data/mvv_lva_data.dat"
+    };
 
     static constexpr int midgame_pawn_value[64] = {
 #include "../Data/Evaluation_Value/MidgamePawnValue.dat"
@@ -77,7 +93,7 @@ private:
 #include "../Data/Evaluation_Value/EndgameKingValue.dat"
     };
 
-    static constexpr const int* midgame_pesto_table[6] = {
+    static constexpr const int *midgame_pesto_table[6] = {
         midgame_pawn_value,
         midgame_knight_value,
         midgame_bishop_value,
@@ -86,7 +102,7 @@ private:
         midgame_king_value
     };
 
-    static constexpr const int* endgame_pesto_table[6] = {
+    static constexpr const int *endgame_pesto_table[6] = {
         endgame_pawn_value,
         endgame_knight_value,
         endgame_bishop_value,

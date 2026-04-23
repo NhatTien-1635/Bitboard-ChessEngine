@@ -1,0 +1,103 @@
+//
+// Created by Hi on 4/22/2026.
+//
+
+#include "../Header/TranspositionTable.h"
+
+#include <random>
+
+uint64_t TranspositionTable::hash_key;
+
+uint64_t TranspositionTable::piece_key[12][64];
+uint64_t TranspositionTable::castle_key[16];
+uint64_t TranspositionTable::enpassant_key[64];
+uint64_t TranspositionTable::side_key;
+
+namespace {
+    int random_number = 0x8DC672B1;
+
+    int GetRandomNumber() {
+        random_number ^= random_number << 13;
+        random_number ^= random_number >> 17;
+        random_number ^= random_number << 5;
+        return random_number;
+    }
+}
+
+namespace PseudoRandomNumberGenerator {
+    uint64_t GenerateRandomNumber64bit() {
+        uint64_t first = GetRandomNumber();
+        uint64_t second = GetRandomNumber();
+        uint64_t third = GetRandomNumber();
+        uint64_t forth = GetRandomNumber();
+
+        return ((forth & 0xffff) << 48) |
+               ((third & 0xffff) << 32) |
+               ((second & 0xffff) << 16) |
+               (first & 0xffff);
+    }
+}
+
+void TranspositionTable::InitTable() {
+    for (int piece = 0; piece < 12; ++piece) {
+        for (int square = 0; square < 64; ++square) {
+            piece_key[piece][square] = PseudoRandomNumberGenerator::GenerateRandomNumber64bit();
+        }
+    }
+
+    for (int square = 0; square < 64; ++square) {
+        enpassant_key[square] = PseudoRandomNumberGenerator::GenerateRandomNumber64bit();
+    }
+
+    for (int right = 0; right < 16; ++right) {
+        castle_key[right] = PseudoRandomNumberGenerator::GenerateRandomNumber64bit();
+    }
+    castle_key[0] = 0;
+
+    side_key = PseudoRandomNumberGenerator::GenerateRandomNumber64bit();
+}
+
+uint64_t TranspositionTable::GenerateKey(const ChessBoard &chess_board) {
+    uint64_t key = 0;
+
+
+    if (chess_board.CurrentSide() == Black) {
+        key ^= side_key;
+    }
+
+    for (int square = 0; square < 64; ++square) {
+        if (chess_board.At(square) != NoPiece) {
+            key ^= piece_key[chess_board.At(square)][square];
+        }
+    }
+
+    if (chess_board.GetEnpassantSquare() != NoSquare) {
+        key ^= enpassant_key[chess_board.GetEnpassantSquare()];
+    }
+
+    key ^= castle_key[chess_board.GetCastlingRight()];
+
+    return key;
+}
+
+void TranspositionTable::PrintTable() {
+    std::cout << "Piece keys:\n";
+    for (int piece = 0; piece < 12; ++piece) {
+        for (int square = 0; square < 64; ++square) {
+            std::cout << piece_key[piece][square] << '\n';
+        }
+    }
+
+    std::cout << "Enpassant keys:\n";
+    for (int square = 0; square < 64; ++square) {
+        std::cout << enpassant_key[square] << '\n';
+    }
+
+    std::cout << "Castle keys:\n";
+    for (int right = 0; right < 16; ++right) {
+        std::cout << castle_key[right] << '\n';
+    }
+
+    std::cout << "Side key: ";
+    std::cout << side_key;
+}
