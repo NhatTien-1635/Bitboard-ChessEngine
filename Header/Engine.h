@@ -4,7 +4,9 @@
 
 #ifndef BITMAPMANIPULATOR_ENGINE_H
 #define BITMAPMANIPULATOR_ENGINE_H
+
 #include "ChessBoard.h"
+#include "TranspositionTable.h"
 
 #define PRINT_NODE
 
@@ -24,10 +26,10 @@ private:
     static int QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply);
 
 // private:
-public:
 
 
 private:
+    static TranspositionTable hash_table;
     static int best_move;
 
 #ifdef PRINT_NODE

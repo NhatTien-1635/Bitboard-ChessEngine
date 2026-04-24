@@ -5,6 +5,7 @@
 #include "../Header/TranspositionTable.h"
 
 #include <random>
+#include <bits/shared_ptr.h>
 
 uint64_t TranspositionTable::hash_key;
 
@@ -38,7 +39,7 @@ namespace PseudoRandomNumberGenerator {
     }
 }
 
-void TranspositionTable::InitTable() {
+void TranspositionTable::InitHashTable() {
     for (int piece = 0; piece < 12; ++piece) {
         for (int square = 0; square < 64; ++square) {
             piece_key[piece][square] = PseudoRandomNumberGenerator::GenerateRandomNumber64bit();
@@ -59,7 +60,6 @@ void TranspositionTable::InitTable() {
 
 uint64_t TranspositionTable::GenerateKey(const ChessBoard &chess_board) {
     uint64_t key = 0;
-
 
     if (chess_board.CurrentSide() == Black) {
         key ^= side_key;
@@ -100,4 +100,49 @@ void TranspositionTable::PrintTable() {
 
     std::cout << "Side key: ";
     std::cout << side_key;
+}
+
+int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, int& return_best_move) const {
+    size_t index = (key & (hash_table_size - 1));
+
+    if (key == hash_table[index].hash_key) {
+        return_best_move = hash_table[index].encoded_best_move;
+
+
+        if (hash_table[index].depth >= depth) {
+            if (hash_table[index].flag == ExactFlag) {
+                return hash_table[index].score;
+            }
+
+            if ((hash_table[index].flag == AlphaFlag) && (hash_table[index].score <= alpha)) {
+                return alpha;
+            }
+
+            if ((hash_table[index].flag == BetaFlag) && (hash_table[index].score >= beta)) {
+                return beta;
+            }
+        }
+    }
+
+    return no_entry_value;
+}
+
+void TranspositionTable::AddEntry(uint64_t key, int depth, int score, HashFlag flag, int encoded_best_move) {
+    size_t index = (key & (hash_table_size - 1));
+
+    hash_table[index].hash_key = key;
+    hash_table[index].depth = depth;
+    hash_table[index].score = score;
+    hash_table[index].flag = flag;
+    hash_table[index].encoded_best_move = encoded_best_move;
+}
+
+void TranspositionTable::RemoveEntry(uint64_t key) {
+    size_t index = (key & (hash_table_size - 1));
+
+    hash_table[index].hash_key = 0;
+    hash_table[index].depth = 0;
+    hash_table[index].score = 0;
+    hash_table[index].flag = NoFlag;
+    hash_table[index].encoded_best_move = 0;
 }

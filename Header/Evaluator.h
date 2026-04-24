@@ -14,9 +14,9 @@ public:
     static int EvaluatePosition(const ChessBoard &chess_board);
 
     //Return the best captured move in the list. then it remove it out of the list.
-    static int SelectBestMove(MoveList &move_list, const ChessBoard &chess_board);
+    static int SelectBestMove(MoveList &move_list, const ChessBoard &chess_board, int tt_move = 0);
 
-    static int ScoreMove(int encoded_move, const ChessBoard &chess_board);
+    static int ScoreMove(int encoded_move, const ChessBoard &chess_board, int tt_move = 0);
 
 public:
     Evaluator() = delete;

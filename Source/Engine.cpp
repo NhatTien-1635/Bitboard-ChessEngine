@@ -6,6 +6,7 @@
 
 #include "../Header/Evaluator.h"
 
+TranspositionTable Engine::hash_table;
 int Engine::best_move = 0;
 
 #ifdef PRINT_NODE
@@ -13,7 +14,9 @@ int Engine::node = 0;
 #endif
 
 int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
-    Negamax(-50000, 50000, chess_board, depth, 0);
+    for (int current_depth = 1; current_depth <= depth; ++current_depth) {
+        Negamax(-50000, 50000, chess_board, current_depth, 0);
+    }
 
 #ifdef PRINT_NODE
     std::cout << "\nNode count: " << node << '\n';
@@ -34,6 +37,13 @@ void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_
 }
 
 int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int ply) {
+    int tt_move = 0;
+    int val = hash_table.ReadEntry(chess_board.GetPositionHashKey(), alpha, beta, depth, tt_move);
+    HashFlag flag = AlphaFlag;
+    if (val != TranspositionTable::no_entry_value) {
+        return val;
+    }
+
     if (depth == 0) {
         return QuiescenceSearch(alpha, beta, chess_board, ply);
     }
@@ -53,7 +63,7 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     chess_board.PopulateMoveList(move_list);
 
     while (move_list.GetMoveCount() > 0) {
-        int move = Evaluator::SelectBestMove(move_list, chess_board);
+        int move = Evaluator::SelectBestMove(move_list, chess_board, tt_move);
 
         // for (int index = 0; index < move_list.GetMoveCount(); ++index) {
         //     int move = move_list.GetMove(index);
@@ -70,12 +80,14 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         //Fail-hard beta cutoff
         if (score >= beta) {
             //Node (move) fail high
+            hash_table.AddEntry(chess_board.GetPositionHashKey(), depth, beta, BetaFlag, move);
             return beta;
         }
 
         if (score > alpha) {
             //PV node (move)
             alpha = score;
+            flag = ExactFlag;
 
             if (ply == 0) {
                 best_move_so_far = move;
@@ -96,6 +108,7 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         best_move = best_move_so_far;
     }
 
+    hash_table.AddEntry(chess_board.GetPositionHashKey(), depth, alpha, flag, best_move_so_far);
     //Node (move) fail low
     return alpha;
 }

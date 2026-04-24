@@ -52,13 +52,13 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
 }
 
 
-int Evaluator::SelectBestMove(MoveList &move_list, const ChessBoard& chess_board) {
+int Evaluator::SelectBestMove(MoveList &move_list, const ChessBoard& chess_board, int tt_move) {
     int move_count = move_list.GetMoveCount();
     int best_index = 0;
-    int max_score = -100000;
+    int max_score = -1000000;
 
     for (int i = 0; i < move_count; ++i) {
-        int current_score = ScoreMove(move_list.GetMove(i), chess_board);
+        int current_score = ScoreMove(move_list.GetMove(i), chess_board, tt_move);
         if (current_score > max_score) {
             max_score = current_score;
             best_index = i;
@@ -72,7 +72,11 @@ int Evaluator::SelectBestMove(MoveList &move_list, const ChessBoard& chess_board
     return move;
 }
 
-int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board) {
+int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int tt_move) {
+    if (encoded_move != 0 && encoded_move == tt_move) {
+        return 1000000;
+    }
+
     if (MoveList::DecodeGetCapturePiece(encoded_move) == NoPiece) {
         return 0;
     }

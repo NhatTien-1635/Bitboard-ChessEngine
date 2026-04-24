@@ -16,18 +16,29 @@
 int main() {
     MoveGenerator::InitGenerator();
     Evaluator::InitializeEvaluationTable();
-    TranspositionTable::InitTable();
+    TranspositionTable::InitHashTable();
 
-    ChessBoard chess_board(FEN_TRICKY_POSITION);
+    TranspositionTable table;
+    MoveList move_list;
+
+    ChessBoard chess_board(FEN_STARTING_POSITION);
     chess_board.PrintBoard();
+    std::cout << MoveList::FormatMoveToString(0, Engine::GetBestMove(chess_board, 9));
 
-    PerformanceTest performance_test;
-    performance_test.RunDriver(chess_board, 4);
-    performance_test.PrintResult();
+    // std::cout << chess_board.GetPositionHashKey();
+
+
+    // PerformanceTest performance_test;
+    // performance_test.RunDriver(chess_board, 3);
+    // performance_test.PrintResult();
     // TranspositionTable::PrintTable();
 
     // MoveList move_list;
-    // std::cout << MoveList::FormatMoveToString(0, Engine::GetBestMove(chess_board, 5));
+
+    // chess_board.MakeMove(Engine::GetBestMove(chess_board, 3));
+    // chess_board.PrintBoard();
+    // std::cout << MoveList::FormatMoveToString(0, Engine::GetBestMove(chess_board, 3));
+
     // chess_board.PopulateMoveList(move_list);
 
 
