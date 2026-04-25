@@ -216,6 +216,9 @@ public:
     MoveList() = default;
     ~MoveList() = default;
 
+public:
+    static constexpr int invalid_move = 0;
+
 // private:
     static std::string FormatMoveToString(int index, int move);
 
@@ -226,9 +229,6 @@ private:
 
 };
 
-//
-// Created by Hi on 4/2/2026.
-//
 
 int MoveList::EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
                          int double_push_flag, int enpassant_flag, int castling_flag) {

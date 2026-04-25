@@ -8,7 +8,7 @@
 #include "ChessBoard.h"
 #include "TranspositionTable.h"
 
-#define PRINT_NODE
+#define PRINT_DEBUG
 
 class Engine {
 public:
@@ -19,21 +19,26 @@ public:
 
     ~Engine() = default;
 
-    static void PrintScoreMoves(const MoveList& move_list, const ChessBoard& chess_board);
+    static void PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_board);
+
+public:
+    static constexpr int max_ply = 128;
 
 private:
     static int Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int ply);
+
     static int QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply);
-
-// private:
-
 
 private:
     static TranspositionTable hash_table;
     static int best_move;
 
-#ifdef PRINT_NODE
+    static int pv_table[max_ply][max_ply];
+    static int pv_length[max_ply];
+
+#ifdef PRINT_DEBUG
     static int node;
+    static int best_score;
 #endif
 };
 

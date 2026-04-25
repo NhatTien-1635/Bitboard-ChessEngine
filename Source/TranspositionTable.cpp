@@ -102,16 +102,20 @@ void TranspositionTable::PrintTable() {
     std::cout << side_key;
 }
 
-int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, int& return_best_move) const {
+int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, int ply, int& return_best_move) const {
     size_t index = (key & (hash_table_size - 1));
 
     if (key == hash_table[index].hash_key) {
+        int score = hash_table[index].score;
+        if (score > 49000) score -= ply;
+        if (score < -49000) score += ply;
+
         return_best_move = hash_table[index].encoded_best_move;
 
 
         if (hash_table[index].depth >= depth) {
             if (hash_table[index].flag == ExactFlag) {
-                return hash_table[index].score;
+                return score;
             }
 
             if ((hash_table[index].flag == AlphaFlag) && (hash_table[index].score <= alpha)) {
@@ -127,8 +131,11 @@ int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, 
     return no_entry_value;
 }
 
-void TranspositionTable::AddEntry(uint64_t key, int depth, int score, HashFlag flag, int encoded_best_move) {
+void TranspositionTable::AddEntry(uint64_t key, int depth, int ply, int score, HashFlag flag, int encoded_best_move) {
     size_t index = (key & (hash_table_size - 1));
+
+    if (score > 49000) score += ply;
+    if (score < -49000) score -= ply;
 
     hash_table[index].hash_key = key;
     hash_table[index].depth = depth;

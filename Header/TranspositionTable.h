@@ -52,9 +52,9 @@ public:
 
     static void PrintTable();
 
-    int ReadEntry(uint64_t key, int alpha, int beta, int depth, int &return_best_move) const;
+    int ReadEntry(uint64_t key, int alpha, int beta, int depth, int ply, int &return_best_move) const;
 
-    void AddEntry(uint64_t key, int depth, int score, HashFlag flag, int encoded_best_move);
+    void AddEntry(uint64_t key, int depth, int ply, int score, HashFlag flag, int encoded_best_move);
 
     void RemoveEntry(uint64_t key);
 

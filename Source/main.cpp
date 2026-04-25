@@ -18,12 +18,11 @@ int main() {
     Evaluator::InitializeEvaluationTable();
     TranspositionTable::InitHashTable();
 
-    TranspositionTable table;
+    // TranspositionTable table;
     MoveList move_list;
 
     ChessBoard chess_board(FEN_STARTING_POSITION);
-    chess_board.PrintBoard();
-    std::cout << MoveList::FormatMoveToString(0, Engine::GetBestMove(chess_board, 9));
+    Engine::GetBestMove(chess_board, 9);
 
     // std::cout << chess_board.GetPositionHashKey();
 
