@@ -27,6 +27,12 @@ public:
         history_moves[MoveList::DecodeGetPiece(encoded_move)][MoveList::DecodeGetTargetSquare(encoded_move)] += depth;
     }
 
+    static void ClearHistoryKillerMoveTable() {
+        std::memset(history_moves, 0, sizeof(history_moves));
+        std::memset(killer_moves, 0, sizeof(killer_moves));
+
+    }
+
 public:
     Evaluator() = delete;
 

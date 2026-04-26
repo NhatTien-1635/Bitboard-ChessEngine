@@ -29,15 +29,17 @@ private:
 
     static int QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply);
 
+    static int ExtractPV(ChessBoard& chess_board, int depth);
+
 private:
     static TranspositionTable hash_table;
     static int best_move;
 
-    static int pv_table[max_ply][max_ply];
-    static int pv_length[max_ply];
+    static int pv_table[max_ply];
+    static int pv_length;
 
+    static uint64_t node;
 #ifdef PRINT_DEBUG
-    static int node;
     static int best_score;
 #endif
 };

@@ -10,8 +10,11 @@
 
 #include "ChessBoard.h"
 #include <vector>
+#include <random>
 
 class ChessBoard;
+
+// #define DEBUG_PSEUDO_RANDOM_GENERATOR
 
 namespace PseudoRandomNumberGenerator {
     uint64_t GenerateRandomNumber64bit();

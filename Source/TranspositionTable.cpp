@@ -4,9 +4,6 @@
 
 #include "../Header/TranspositionTable.h"
 
-#include <random>
-#include <bits/shared_ptr.h>
-
 uint64_t TranspositionTable::hash_key;
 
 uint64_t TranspositionTable::piece_key[12][64];
@@ -27,6 +24,7 @@ namespace {
 
 namespace PseudoRandomNumberGenerator {
     uint64_t GenerateRandomNumber64bit() {
+#ifdef DEBUG_PSEUDO_RANDOM_GENERATOR
         uint64_t first = GetRandomNumber();
         uint64_t second = GetRandomNumber();
         uint64_t third = GetRandomNumber();
@@ -36,6 +34,13 @@ namespace PseudoRandomNumberGenerator {
                ((third & 0xffff) << 32) |
                ((second & 0xffff) << 16) |
                (first & 0xffff);
+
+#else
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<std::uint64_t> dis;
+        return dis(gen);
+#endif
     }
 }
 
@@ -102,7 +107,7 @@ void TranspositionTable::PrintTable() {
     std::cout << side_key;
 }
 
-int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, int ply, int& return_best_move) const {
+int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, int ply, int &return_best_move) const {
     size_t index = (key & (hash_table_size - 1));
 
     if (key == hash_table[index].hash_key) {
@@ -137,11 +142,14 @@ void TranspositionTable::AddEntry(uint64_t key, int depth, int ply, int score, H
     if (score > 49000) score += ply;
     if (score < -49000) score -= ply;
 
-    hash_table[index].hash_key = key;
-    hash_table[index].depth = depth;
-    hash_table[index].score = score;
-    hash_table[index].flag = flag;
-    hash_table[index].encoded_best_move = encoded_best_move;
+    //Depth-preferred overwriting
+    if (hash_table[index].hash_key == 0 || hash_table[index].hash_key == key || hash_table[index].depth < depth) {
+        hash_table[index].hash_key = key;
+        hash_table[index].depth = depth;
+        hash_table[index].score = score;
+        hash_table[index].flag = flag;
+        hash_table[index].encoded_best_move = encoded_best_move;
+    }
 }
 
 void TranspositionTable::RemoveEntry(uint64_t key) {

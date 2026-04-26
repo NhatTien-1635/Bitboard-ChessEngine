@@ -22,7 +22,10 @@ int main() {
     MoveList move_list;
 
     ChessBoard chess_board(FEN_STARTING_POSITION);
-    Engine::GetBestMove(chess_board, 9);
+    int best_move = Engine::GetBestMove(chess_board, 11);
+
+    std::cout << "Best move: " << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(best_move)) <<
+            MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(best_move));
 
     // std::cout << chess_board.GetPositionHashKey();
 

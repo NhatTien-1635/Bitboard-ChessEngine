@@ -7,42 +7,48 @@
 #include "../Header/Evaluator.h"
 
 TranspositionTable Engine::hash_table;
-int Engine::pv_length[Engine::max_ply]{};
-int Engine::pv_table[Engine::max_ply][Engine::max_ply]{};
+int Engine::pv_length = 0;
+int Engine::pv_table[Engine::max_ply]{};
 int Engine::best_move = 0;
 
+uint64_t Engine::node = 0;
+
 #ifdef PRINT_DEBUG
-int Engine::node = 0;
 int Engine::best_score = 0;
 #endif
 
 int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
-
-    for (int current_depth = 1; current_depth <= depth; ++current_depth) {
-        Negamax(-50000, 50000, chess_board, current_depth, 0);
-    }
-
-#ifdef PRINT_DEBUG
     std::cout << "Search best move position:\n";
     std::cout << "================================================\n";
     chess_board.PrintBoard();
+
+    node = 0;
+    pv_length = 0;
+    Evaluator::ClearHistoryKillerMoveTable();
+    hash_table.ClearTable();
+
+    std::memset(pv_table, 0, sizeof(pv_table));
+    for (int current_depth = 1; current_depth <= depth; ++current_depth) {
+        Negamax(-50000, 50000, chess_board, current_depth, 0);
+
+        ExtractPV(chess_board, current_depth);
+
+#ifdef PRINT_DEBUG
     std::cout << "================================================\n";
-    std::cout << "Depth: " << depth << " | Score: " << best_score << '\n';
+    std::cout << "Depth: " << current_depth << " | Score: " << best_score << '\n';
     std::cout << "Node count: " << node << '\n';
     std::cout << "PV moves: ";
 
-    for (int index = 0; index < pv_length[0]; ++index) {
-        int move = pv_table[0][index];
+    for (int index = 0; index < pv_length; ++index) {
+        int move = pv_table[index];
         std::cout << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(move)) <<
                 MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(move)) << ' ';
     }
     std::cout << '\n';
-    std::cout << "Best move: " << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(best_move)) <<
-            MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(best_move));
-
 #endif
+    }
 
-    return best_move;
+    return pv_table[0];
 }
 
 void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_board) {
@@ -57,11 +63,6 @@ void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_
 }
 
 int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int ply) {
-    if (ply >= max_ply - 1) {
-        return Evaluator::EvaluatePosition(chess_board);
-    }
-    pv_length[ply] = ply;
-
     int tt_move = 0;
     int val = hash_table.ReadEntry(chess_board.GetPositionHashKey(), alpha, beta, depth, ply, tt_move);
     HashFlag flag = AlphaFlag;
@@ -73,37 +74,39 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         return QuiescenceSearch(alpha, beta, chess_board, ply);
     }
 
-#ifdef PRINT_DEBUG
     ++node;
-#endif
+
 
     if (chess_board.IsKingInCheck()) {
         ++depth;
     }
 
     MoveList move_list;
-    int best_move_so_far = 0;
+    int best_move_so_far = tt_move;
     int old_alpha = alpha;
     int legal_move = 0;
     chess_board.PopulateMoveList(move_list);
 
-    MoveList sorted_list;
-    // while (move_list.GetMoveCount() > 0) {
-    //     sorted_list.AddMove(Evaluator::SelectBestMove(move_list, chess_board, ply, tt_move));
-    // }
-    //
-    // for (int index = 0; index < sorted_list.GetMoveCount(); ++index) {
-    //     int move = sorted_list.GetMove(index);
-
+    bool first_move = true;
     while (move_list.GetMoveCount() > 0) {
         int move = Evaluator::SelectBestMove(move_list, chess_board, ply, tt_move);
-
 
         if (!chess_board.MakeMove(move)) {
             continue;
         }
 
-        int score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+        int score = 0;
+        if (first_move) {
+        score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+            first_move = false;
+        }
+        else {
+            score = -Negamax(-alpha - 1, -alpha, chess_board, depth - 1, ply + 1);
+
+            if (score > alpha && score < beta) {
+                score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+            }
+        }
         ++legal_move;
 
         chess_board.UnmakeMove(move);
@@ -124,23 +127,12 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
                 Evaluator::UpdateHistoryMove(move, depth);
             }
 
-            //Write PV move
-            pv_table[ply][ply] = move;
-
-            //Copy next ply to the current ply
-            for (int next_ply = ply + 1; next_ply < pv_length[ply + 1]; ++next_ply) {
-                pv_table[ply][next_ply] = pv_table[ply + 1][next_ply];
-            }
-
-            //Adjust PV length
-            pv_length[ply] = pv_length[ply + 1];
-
             //PV node (move)
             alpha = score;
             flag = ExactFlag;
 
+            best_move_so_far = move;
             if (ply == 0) {
-                best_move_so_far = move;
 #ifdef PRINT_DEBUG
                 best_score = score;
 #endif
@@ -186,23 +178,15 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
         alpha = evaluation;
     }
 
-#ifdef PRINT_DEBUG
     ++node;
-#endif
+
 
     MoveList move_list;
     chess_board.PopulateCaptureMoveList(move_list);
-
-    // MoveList sorted_list;
-    // while (move_list.GetMoveCount() > 0) {
-    //     sorted_list.AddMove(Evaluator::SelectBestMove(move_list, chess_board, ply));
-    // }
-    //
-    // for (int index = 0; index < sorted_list.GetMoveCount(); ++index) {
-    //     int move = sorted_list.GetMove(index);
+    int best_move_so_far = tt_move;
 
     while (move_list.GetMoveCount() > 0) {
-        int move = Evaluator::SelectBestMove(move_list, chess_board, ply);
+        int move = Evaluator::SelectBestMove(move_list, chess_board, ply, tt_move);
 
         if (!chess_board.MakeCaptureMove(move)) {
             continue;
@@ -221,9 +205,34 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
         if (score > alpha) {
             //PV node (move)
             alpha = score;
+            flag = ExactFlag;
         }
     }
 
+    hash_table.AddEntry(chess_board.GetPositionHashKey(), -1, ply, alpha, flag, best_move_so_far);
     //Node (move) fail low
     return alpha;
+}
+
+int Engine::ExtractPV(ChessBoard &chess_board, int depth) {
+    int pv_count = 0;
+    int move;
+
+    for (int index = 0; index < depth; ++index) {
+        int tt_move = 0;
+        hash_table.ReadEntry(chess_board.GetPositionHashKey(), -50000, 50000, -2, 0, tt_move);
+
+        if (tt_move == 0 || !chess_board.MakeMove(tt_move)) {
+            break;
+        }
+
+        pv_table[pv_count++] = tt_move;
+    }
+
+    for (int index = pv_count - 1; index >= 0; --index) {
+        chess_board.UnmakeMove(pv_table[index]);
+    }
+
+    pv_length = pv_count;
+    return pv_count > 0 ? pv_table[0] : 0;
 }
