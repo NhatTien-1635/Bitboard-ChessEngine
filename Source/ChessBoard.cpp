@@ -355,6 +355,19 @@ bool ChessBoard::MakeCaptureMove(int encoded_move) {
     }
 }
 
+void ChessBoard::MakeNullMove() {
+    history[game_ply++] = board_state;
+
+    board_state.side_to_move = opponent_side[board_state.side_to_move];
+    TranspositionTable::UpdateSide();
+
+    if (board_state.en_passant != NoSquare) {
+        TranspositionTable::UpdateEnpassant(board_state.en_passant);
+    }
+    board_state.en_passant = NoSquare;
+    board_state.hash_key = TranspositionTable::GetKey();
+}
+
 void ChessBoard::UnmakeMove(int encoded_move) {
     //Restore game state
     board_state = std::move(history[--game_ply]);
@@ -449,6 +462,18 @@ void ChessBoard::UnmakeMove(int encoded_move) {
 
     //Restore occupancy bitboard
     occupancy_bitboard[Both] = (occupancy_bitboard[White] | occupancy_bitboard[Black]);
+}
+
+void ChessBoard::UnmakeNullMove() {
+    board_state = history[--game_ply];
+    TranspositionTable::SetKey(board_state.hash_key);
+}
+
+bool ChessBoard::HasMajorPieceLeft(Side side) const {
+    if (!(occupancy_bitboard[side] & (piece_bitboard[side * 6 + WhitePawn] | piece_bitboard[side * 6 + WhiteKing]))) {
+        return false;
+    }
+    return true;
 }
 
 //Check if the square is attacked by the attacker Side

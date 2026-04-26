@@ -14,7 +14,7 @@
 
 class ChessBoard;
 
-// #define DEBUG_PSEUDO_RANDOM_GENERATOR
+#define DEBUG_PSEUDO_RANDOM_GENERATOR
 
 namespace PseudoRandomNumberGenerator {
     uint64_t GenerateRandomNumber64bit();

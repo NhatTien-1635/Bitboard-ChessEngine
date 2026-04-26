@@ -10,17 +10,37 @@ TranspositionTable Engine::hash_table;
 int Engine::pv_length = 0;
 int Engine::pv_table[Engine::max_ply]{};
 int Engine::best_move = 0;
+int Engine::lmr_table[64][64]{};
 
 uint64_t Engine::node = 0;
+
+#ifdef SPEED_TEST
+std::chrono::duration<double> Engine::run_time;
+#endif
 
 #ifdef PRINT_DEBUG
 int Engine::best_score = 0;
 #endif
 
+void Engine::InitTableLMR() {
+    for (int depth = 0; depth < 64; ++depth) {
+        for (int move_index = 0; move_index < 64; ++move_index) {
+            if (depth > 0 && move_index > 0) {
+                double reduction = 0.5 + ((std::log(depth) * std::log(move_index)) / helper_constant);
+                lmr_table[depth][move_index] = (int) reduction;
+            }
+        }
+    }
+}
+
 int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
     std::cout << "Search best move position:\n";
     std::cout << "================================================\n";
     chess_board.PrintBoard();
+
+#ifdef SPEED_TEST
+    auto start_time = std::chrono::steady_clock::now();
+#endif
 
     node = 0;
     pv_length = 0;
@@ -29,24 +49,28 @@ int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
 
     std::memset(pv_table, 0, sizeof(pv_table));
     for (int current_depth = 1; current_depth <= depth; ++current_depth) {
-        Negamax(-50000, 50000, chess_board, current_depth, 0);
-
+        Negamax(-Evaluator::infinity_score, Evaluator::infinity_score, chess_board, current_depth, 0);
         ExtractPV(chess_board, current_depth);
 
 #ifdef PRINT_DEBUG
-    std::cout << "================================================\n";
-    std::cout << "Depth: " << current_depth << " | Score: " << best_score << '\n';
-    std::cout << "Node count: " << node << '\n';
-    std::cout << "PV moves: ";
+        std::cout << "================================================\n";
+        std::cout << "Depth: " << current_depth << " | Score: " << best_score << '\n';
+        std::cout << "Node count: " << node << '\n';
+        std::cout << "PV moves: ";
 
-    for (int index = 0; index < pv_length; ++index) {
-        int move = pv_table[index];
-        std::cout << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(move)) <<
-                MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(move)) << ' ';
-    }
-    std::cout << '\n';
+        for (int index = 0; index < pv_length; ++index) {
+            int move = pv_table[index];
+            std::cout << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(move)) <<
+                    MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(move)) << ' ';
+        }
+        std::cout << '\n';
 #endif
     }
+
+#ifdef SPEED_TEST
+    run_time = std::chrono::steady_clock::now() - start_time;
+    std::cout << "Search time at depth " << depth << ": " << run_time.count() << '\n';
+#endif
 
     return pv_table[0];
 }
@@ -70,15 +94,27 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         return val;
     }
 
-    if (depth == 0) {
-        return QuiescenceSearch(alpha, beta, chess_board, ply);
+    bool is_check = chess_board.IsKingInCheck();
+    if (is_check) {
+        ++depth;
     }
 
+    if (depth <= 0) {
+        return QuiescenceSearch(alpha, beta, chess_board, ply);
+    }
     ++node;
 
+    //Null move pruning
+    if (!is_check && depth >= full_depth_move_limit && ply > 0 && (beta - alpha == 1) && chess_board.HasMajorPieceLeft(
+            chess_board.CurrentSide())) {
+        chess_board.MakeNullMove();
+        //Search with reduced depth to find beta cutoff
+        int null_score = -Negamax(-beta, -beta + 1, chess_board, depth - 1 - 2, ply + 1);
+        chess_board.UnmakeNullMove();
 
-    if (chess_board.IsKingInCheck()) {
-        ++depth;
+        if (null_score >= beta) {
+            return beta;
+        }
     }
 
     MoveList move_list;
@@ -88,6 +124,8 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     chess_board.PopulateMoveList(move_list);
 
     bool first_move = true;
+    int move_index = 0;
+
     while (move_list.GetMoveCount() > 0) {
         int move = Evaluator::SelectBestMove(move_list, chess_board, ply, tt_move);
 
@@ -97,12 +135,29 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
 
         int score = 0;
         if (first_move) {
-        score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+            score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
             first_move = false;
-        }
-        else {
-            score = -Negamax(-alpha - 1, -alpha, chess_board, depth - 1, ply + 1);
+        } else {
+            bool is_capture = (MoveList::DecodeGetCapturePiece(move) != NoPiece);
+            bool is_promotion = (MoveList::DecodeGetPromotedPiece(move) != NoPiece);
+            bool is_checking = chess_board.IsKingInCheck();
+            int reduction = 0;
 
+            //LMR condition
+            if (depth >= reduction_limit && move_index >= full_depth_move_limit && !is_check && !is_capture && !
+                is_promotion && !is_checking) {
+                reduction = lmr_table[std::min(63, depth)][std::min(63, move_index)];
+            }
+
+            //Search with PVS + LMR
+            score = -Negamax(-alpha - 1, -alpha, chess_board, depth - 1 - reduction, ply + 1);
+
+            //Re-search with PVS
+            if (reduction > 0 && score > alpha) {
+                score = -Negamax(-alpha - 1, -alpha, chess_board, depth - 1, ply + 1);
+            }
+
+            //Standard re-search
             if (score > alpha && score < beta) {
                 score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
             }
@@ -110,6 +165,8 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         ++legal_move;
 
         chess_board.UnmakeMove(move);
+
+        ++move_index;
 
         //Fail-hard beta cutoff
         if (score >= beta) {
@@ -143,7 +200,7 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     //No legal move
     if (legal_move == 0) {
         if (chess_board.IsKingInCheck()) {
-            return -50000 + ply;
+            return -Evaluator::infinity_score + ply;
         } else {
             return 0;
         }
@@ -180,7 +237,6 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
 
     ++node;
 
-
     MoveList move_list;
     chess_board.PopulateCaptureMoveList(move_list);
     int best_move_so_far = tt_move;
@@ -216,8 +272,6 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
 
 int Engine::ExtractPV(ChessBoard &chess_board, int depth) {
     int pv_count = 0;
-    int move;
-
     for (int index = 0; index < depth; ++index) {
         int tt_move = 0;
         hash_table.ReadEntry(chess_board.GetPositionHashKey(), -50000, 50000, -2, 0, tt_move);

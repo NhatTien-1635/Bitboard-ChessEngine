@@ -17,15 +17,30 @@ int main() {
     MoveGenerator::InitGenerator();
     Evaluator::InitializeEvaluationTable();
     TranspositionTable::InitHashTable();
+    Engine::InitTableLMR();
 
     // TranspositionTable table;
     MoveList move_list;
 
-    ChessBoard chess_board(FEN_STARTING_POSITION);
-    int best_move = Engine::GetBestMove(chess_board, 11);
+    /**
+     *  Early game:
+     *  - Before: 1651968
+     *  - After: 1883577
+     *
+     *  Mid game:
+     *  - Before: 3433449
+     *  - After: 3629711
+     *
+     *  End game:
+     *  - Before:
+     *  - After:
+     */
+    ChessBoard chess_board(FEN_END_GAME);
+    int best_move = Engine::GetBestMove(chess_board, 9);
 
     std::cout << "Best move: " << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(best_move)) <<
             MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(best_move));
+
 
     // std::cout << chess_board.GetPositionHashKey();
 

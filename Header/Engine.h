@@ -8,10 +8,20 @@
 #include "ChessBoard.h"
 #include "TranspositionTable.h"
 
+#include <cmath>
+
+//Debug macros
 #define PRINT_DEBUG
+#define SPEED_TEST
+
+#ifdef SPEED_TEST
+#include <chrono>
+#endif
 
 class Engine {
 public:
+    static void InitTableLMR();
+
     static int GetBestMove(ChessBoard &chess_board, int depth);
 
 public:
@@ -29,7 +39,14 @@ private:
 
     static int QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply);
 
-    static int ExtractPV(ChessBoard& chess_board, int depth);
+    static int ExtractPV(ChessBoard &chess_board, int depth);
+
+private:
+    static constexpr int full_depth_move_limit = 4;
+    static constexpr int reduction_limit = 3;
+
+    static constexpr int window_value = 50;
+    static constexpr int window_widening_value = 150;
 
 private:
     static TranspositionTable hash_table;
@@ -38,9 +55,19 @@ private:
     static int pv_table[max_ply];
     static int pv_length;
 
+    //lmr_table[depth][move_index]
+    static int lmr_table[64][64];
+    static constexpr double helper_constant = 2.2;
+
+
     static uint64_t node;
+
 #ifdef PRINT_DEBUG
     static int best_score;
+#endif
+
+#ifdef SPEED_TEST
+    static std::chrono::duration<double> run_time;
 #endif
 };
 

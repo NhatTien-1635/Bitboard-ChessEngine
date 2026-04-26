@@ -19,7 +19,7 @@ class TranspositionTable;
  *  Reference: https://www.chessprogramming.org/Forsyth-Edwards_Notation
  */
 
-// #define HASH_KEY_DEBUG
+#define HASH_KEY_DEBUG
 #define NEW_POPULATE_MOVE_LIST_FUNCTION
 
 //Debug test
@@ -28,6 +28,16 @@ class TranspositionTable;
 #define FEN_TRICKY_POSITION "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"
 #define FEN_KILLER_POSITION "rnbqkb1r/pp1p1pPp/8/2p1pP2/1P1P4/3P3P/P1P1P3/RNBQKBNR w KQkq e6 0 1"
 #define FEN_CMK_POSITION "r2q1rk1/ppp2ppp/2n1bn2/2b1p3/3pP3/3P1NPP/PPP1NPB1/R1BQ1RK1 b - - 0 9 "
+
+// 1. EARLY GAME (Quiet, developing phase)
+// A standard Ruy Lopez opening after 5 moves.
+#define FEN_EARLY_GAME "r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4"
+
+// 2. MID GAME (Highly tactical, chaotic)
+#define FEN_MID_GAME FEN_TRICKY_POSITION
+
+// 3. LATE GAME (Endgame, deep calculation but low branching factor)
+#define FEN_END_GAME "8/8/8/7k/8/8/4K1Q1/8 w - - 0 1"
 
 class MoveList;
 
@@ -78,7 +88,13 @@ public:
 
     bool MakeCaptureMove(int encoded_move);
 
+    void MakeNullMove();
+
     void UnmakeMove(int encoded_move);
+
+    void UnmakeNullMove();
+
+    bool HasMajorPieceLeft(Side side) const;
 
     //Return if the square is attacked by the opposite color
     bool IsSquaredAttacked(uint8_t square, uint8_t attacker) const;

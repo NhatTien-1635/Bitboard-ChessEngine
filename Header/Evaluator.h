@@ -32,6 +32,8 @@ public:
         std::memset(killer_moves, 0, sizeof(killer_moves));
 
     }
+public:
+    static constexpr int infinity_score = 50000;
 
 public:
     Evaluator() = delete;
