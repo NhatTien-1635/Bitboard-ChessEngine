@@ -19,8 +19,7 @@ class TranspositionTable;
  *  Reference: https://www.chessprogramming.org/Forsyth-Edwards_Notation
  */
 
-#define HASH_KEY_DEBUG
-#define NEW_POPULATE_MOVE_LIST_FUNCTION
+// #define HASH_KEY_DEBUG
 
 //Debug test
 #define FEN_EMPTY_BOARD "8/8/8/8/8/8/8/8 w - - "
@@ -228,6 +227,13 @@ public:
     inline int GetMoveCount() const;
     inline void Swap(int src, int tar);
     inline void PopBack(){ --count; };
+    void AddScore(int index, int val) {
+        score[index] = val;
+    }
+
+    int GetScore(int index) {
+        return score[index];
+    }
 
     MoveList() = default;
     ~MoveList() = default;
@@ -240,9 +246,8 @@ public:
 
 private:
     int move_list[256];
+    int score[256];
     int count = 0;
-
-
 };
 
 
@@ -321,6 +326,10 @@ void MoveList::Swap(int src, int tar) {
     int temp = move_list[src];
     move_list[src] = move_list[tar];
     move_list[tar] = temp;
+
+    temp = score[src];
+    score[src] = score[tar];
+    score[tar] = temp;
 }
 
 

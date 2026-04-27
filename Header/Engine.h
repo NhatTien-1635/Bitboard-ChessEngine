@@ -11,8 +11,10 @@
 #include <cmath>
 
 //Debug macros
-#define PRINT_DEBUG
+//==================================
+// #define PRINT_DEBUG
 #define SPEED_TEST
+//==================================
 
 #ifdef SPEED_TEST
 #include <chrono>
@@ -58,7 +60,6 @@ private:
     //lmr_table[depth][move_index]
     static int lmr_table[64][64];
     static constexpr double helper_constant = 2.2;
-
 
     static uint64_t node;
 

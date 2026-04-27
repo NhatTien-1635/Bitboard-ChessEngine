@@ -14,7 +14,7 @@
 
 class ChessBoard;
 
-#define DEBUG_PSEUDO_RANDOM_GENERATOR
+// #define DEBUG_PSEUDO_RANDOM_GENERATOR
 
 namespace PseudoRandomNumberGenerator {
     uint64_t GenerateRandomNumber64bit();
@@ -29,10 +29,10 @@ enum HashFlag : uint8_t {
 
 struct Entry {
     uint64_t hash_key = 0;
-    int depth = 0;
-    int score = 0;
+    int32_t encoded_best_move = 0;
+    int16_t score = 0;
+    int8_t depth = 0;
     HashFlag flag = NoFlag;
-    int encoded_best_move = 0;
 };
 
 class TranspositionTable {

@@ -18,8 +18,10 @@ void Evaluator::InitializeEvaluationTable() {
                 midgame_table[piece][square] = midgame_value[piece] + midgame_pesto_table[piece][square];
                 endgame_table[piece][square] = endgame_value[piece] + endgame_pesto_table[piece][square];
             } else {
-                midgame_table[piece][square] = midgame_value[piece % 6] + midgame_pesto_table[piece % 6][ChessBoard::GetFlippedSquare(square)];
-                endgame_table[piece][square] = endgame_value[piece % 6] + endgame_pesto_table[piece % 6][ChessBoard::GetFlippedSquare(square)];
+                midgame_table[piece][square] = midgame_value[piece % 6] + midgame_pesto_table[piece % 6][
+                                                   ChessBoard::GetFlippedSquare(square)];
+                endgame_table[piece][square] = endgame_value[piece % 6] + endgame_pesto_table[piece % 6][
+                                                   ChessBoard::GetFlippedSquare(square)];
             }
         }
     }
@@ -55,24 +57,31 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
 }
 
 
-int Evaluator::SelectBestMove(MoveList &move_list, const ChessBoard& chess_board, int ply, int tt_move) {
+int Evaluator::SelectBestMove(MoveList &move_list) {
     int move_count = move_list.GetMoveCount();
     int best_index = 0;
     int max_score = -1000000;
 
     for (int i = 0; i < move_count; ++i) {
-        int current_score = ScoreMove(move_list.GetMove(i), chess_board, ply, tt_move);
-        if (current_score > max_score) {
-            max_score = current_score;
+        if (max_score < move_list.GetScore(i)) {
+            max_score = move_list.GetScore(i);
             best_index = i;
         }
     }
 
-    move_list.Swap(best_index, move_count - 1);
+    move_list.Swap(move_count - 1, best_index);
 
     int move = move_list.GetMove(move_count - 1);
     move_list.PopBack();
     return move;
+}
+
+void Evaluator::ScoreMoveList(MoveList &move_list, const ChessBoard &chess_board, int ply, int tt_move) {
+    int move_count = move_list.GetMoveCount();
+
+    for (int i = 0; i < move_count; ++i) {
+        move_list.AddScore(i, ScoreMove(move_list.GetMove(i), chess_board, ply, tt_move));
+    }
 }
 
 int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int ply, int tt_move) {
@@ -85,7 +94,12 @@ int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int pl
         if (see_score < 0) {
             return see_score;
         }
-        return 100000 + mvv_laa_table[MoveList::DecodeGetPiece(encoded_move) % 6][MoveList::DecodeGetCapturePiece(encoded_move) % 6];
+        return 100000 + mvv_laa_table[MoveList::DecodeGetPiece(encoded_move) % 6][
+                   MoveList::DecodeGetCapturePiece(encoded_move) % 6];
+    }
+
+    if (MoveList::DecodeGetPromotedPiece(encoded_move) != NoPiece) {
+        return 100000;
     }
 
     if (encoded_move == killer_moves[0][ply]) {
@@ -100,7 +114,6 @@ int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int pl
 }
 
 int Evaluator::GetScoreSEE(int encoded_move, const ChessBoard &chess_board) {
-
     int from = MoveList::DecodeGetSourceSquare(encoded_move);
     int to = MoveList::DecodeGetTargetSquare(encoded_move);
 

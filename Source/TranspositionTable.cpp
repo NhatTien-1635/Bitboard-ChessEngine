@@ -116,18 +116,16 @@ int TranspositionTable::ReadEntry(uint64_t key, int alpha, int beta, int depth, 
         if (score < -49000) score += ply;
 
         return_best_move = hash_table[index].encoded_best_move;
-
-
         if (hash_table[index].depth >= depth) {
             if (hash_table[index].flag == ExactFlag) {
                 return score;
             }
 
-            if ((hash_table[index].flag == AlphaFlag) && (hash_table[index].score <= alpha)) {
+            if ((hash_table[index].flag == AlphaFlag) && (score <= alpha)) {
                 return alpha;
             }
 
-            if ((hash_table[index].flag == BetaFlag) && (hash_table[index].score >= beta)) {
+            if ((hash_table[index].flag == BetaFlag) && (score >= beta)) {
                 return beta;
             }
         }

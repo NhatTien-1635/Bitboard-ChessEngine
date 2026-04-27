@@ -70,6 +70,7 @@ int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
 #ifdef SPEED_TEST
     run_time = std::chrono::steady_clock::now() - start_time;
     std::cout << "Search time at depth " << depth << ": " << run_time.count() << '\n';
+    std::cout << "Node count: " << node << '\n';
 #endif
 
     return pv_table[0];
@@ -102,6 +103,14 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     if (depth <= 0) {
         return QuiescenceSearch(alpha, beta, chess_board, ply);
     }
+
+    if (depth <= 2 && !is_check) {
+        int static_eval = Evaluator::EvaluatePosition(chess_board);
+        if (static_eval + 150 <= alpha) {
+            return QuiescenceSearch(alpha, beta, chess_board, ply);
+        }
+    }
+
     ++node;
 
     //Null move pruning
@@ -126,8 +135,10 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     bool first_move = true;
     int move_index = 0;
 
+    Evaluator::ScoreMoveList(move_list, chess_board, ply, tt_move);
+
     while (move_list.GetMoveCount() > 0) {
-        int move = Evaluator::SelectBestMove(move_list, chess_board, ply, tt_move);
+        int move = Evaluator::SelectBestMove(move_list);
 
         if (!chess_board.MakeMove(move)) {
             continue;
@@ -240,9 +251,10 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
     MoveList move_list;
     chess_board.PopulateCaptureMoveList(move_list);
     int best_move_so_far = tt_move;
+    Evaluator::ScoreMoveList(move_list, chess_board, ply, tt_move);
 
     while (move_list.GetMoveCount() > 0) {
-        int move = Evaluator::SelectBestMove(move_list, chess_board, ply, tt_move);
+        int move = Evaluator::SelectBestMove(move_list);
 
         if (!chess_board.MakeCaptureMove(move)) {
             continue;
@@ -274,7 +286,7 @@ int Engine::ExtractPV(ChessBoard &chess_board, int depth) {
     int pv_count = 0;
     for (int index = 0; index < depth; ++index) {
         int tt_move = 0;
-        hash_table.ReadEntry(chess_board.GetPositionHashKey(), -50000, 50000, -2, 0, tt_move);
+        hash_table.ReadEntry(chess_board.GetPositionHashKey(), -50000, 50000, -2, index, tt_move);
 
         if (tt_move == 0 || !chess_board.MakeMove(tt_move)) {
             break;

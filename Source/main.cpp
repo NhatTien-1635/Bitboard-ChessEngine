@@ -10,7 +10,7 @@
 
 #include <random>
 
-#define FEN_TEST_POSITION "k7/8/K7/8/8/8/8/4Q3 w - - 0 0"
+#define FEN_TEST_POSITION "8/1p6/8/8/7P/3p1p1p/p1prpp1P/k1Kbbrn1 w - - 0 70"
 
 
 int main() {
@@ -35,8 +35,8 @@ int main() {
      *  - Before:
      *  - After:
      */
-    ChessBoard chess_board(FEN_END_GAME);
-    int best_move = Engine::GetBestMove(chess_board, 9);
+    ChessBoard chess_board(FEN_EARLY_GAME);
+    int best_move = Engine::GetBestMove(chess_board, 15);
 
     std::cout << "Best move: " << MoveGenerator::SquareToString(MoveList::DecodeGetSourceSquare(best_move)) <<
             MoveGenerator::SquareToString(MoveList::DecodeGetTargetSquare(best_move));
