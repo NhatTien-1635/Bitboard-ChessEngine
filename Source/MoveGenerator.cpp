@@ -36,10 +36,10 @@ const Bitmap MoveGenerator::bishop_magic_number[64]{
 };
 
 void MoveGenerator::InitGenerator() {
-    file_a_mask = Bitmap::GetColumnMask(0);
-    file_h_mask = Bitmap::GetColumnMask(7);
-    file_ab_mask = Bitmap::GetColumnMask(0) | Bitmap::GetColumnMask(1);
-    file_gh_mask = Bitmap::GetColumnMask(6) | Bitmap::GetColumnMask(7);
+    file_a_mask = Bitmap::GetFileMask(0);
+    file_h_mask = Bitmap::GetFileMask(7);
+    file_ab_mask = Bitmap::GetFileMask(0) | Bitmap::GetFileMask(1);
+    file_gh_mask = Bitmap::GetFileMask(6) | Bitmap::GetFileMask(7);
 
     InitPawnAttack();
     InitKnightAttack();

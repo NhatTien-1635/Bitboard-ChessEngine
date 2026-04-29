@@ -144,39 +144,139 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     int old_alpha = alpha;
     int legal_move = 0;
 
-    //TODO: Add doing tt_move here first
-
-    chess_board.PopulateMoveList(move_list);
-
     bool first_move = true;
     int move_index = 0;
+    int score = 0;
 
-    Evaluator::ScoreMoveList(move_list, chess_board, ply, tt_move);
+    //Make tt_move first
+    if (tt_move != 0) {
+        chess_board.MakeMove(tt_move);
+        //50-move/Three fold repetition check
+        if (chess_board.GetHalfClock() >= 100 || chess_board.IsPositionRepeated()) {
+            chess_board.UnmakeMove(tt_move);
+            return 0;
+        }
+
+        score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+        first_move = false;
+        chess_board.UnmakeMove(tt_move);
+
+        //Fail-hard beta cutoff
+        if (score >= beta) {
+            if (MoveList::DecodeGetCapturePiece(tt_move) == NoPiece) {
+                Evaluator::StoreKillerMove(tt_move, ply);
+            }
+
+            hash_table.AddEntry(chess_board.GetPositionHashKey(), depth, ply, beta, BetaFlag, tt_move);
+            //Node (move) fail high
+            return beta;
+        }
+
+        if (score > alpha) {
+            if (MoveList::DecodeGetCapturePiece(tt_move) == NoPiece) {
+                Evaluator::UpdateHistoryMove(tt_move, depth);
+            }
+
+            //PV node (move)
+            alpha = score;
+            flag = ExactFlag;
+
+            best_move_so_far = tt_move;
+            if (ply == 0) {
+#ifdef PRINT_DEBUG
+                best_score = score;
+#endif
+            }
+        }
+    }
+
+    //Make capture move second
+    chess_board.PopulateCaptureMoveList(move_list);
+    Evaluator::ScoreMoveList(move_list, chess_board, ply);
     while (move_list.GetMoveCount() > 0) {
         int move = Evaluator::SelectBestMove(move_list);
+        if (move == tt_move) {
+            continue;
+        }
 
         if (!chess_board.MakeMove(move)) {
             continue;
         }
 
         //50-move/Three fold repetition check
-        if (chess_board.IsPositionRepeated() || chess_board.GetHalfClock() >= 100) {
+        if (chess_board.GetHalfClock() >= 100) {
             chess_board.UnmakeMove(move);
             return 0;
         }
 
-        int score = 0;
         if (first_move) {
             score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
             first_move = false;
         } else {
-            bool is_capture = (MoveList::DecodeGetCapturePiece(move) != NoPiece);
+            //Re-search with PVS
+            score = -Negamax(-alpha - 1, -alpha, chess_board, depth - 1, ply + 1);
+
+            //Standard re-search
+            if (score > alpha && score < beta) {
+                score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+            }
+        }
+        ++legal_move;
+        chess_board.UnmakeMove(move);
+
+        ++move_index;
+
+        //Fail-hard beta cutoff
+        if (score >= beta) {
+            hash_table.AddEntry(chess_board.GetPositionHashKey(), depth, ply, beta, BetaFlag, move);
+            //Node (move) fail high
+            return beta;
+        }
+
+        if (score > alpha) {
+            //PV node (move)
+            alpha = score;
+            flag = ExactFlag;
+
+            best_move_so_far = move;
+            if (ply == 0) {
+#ifdef PRINT_DEBUG
+                best_score = score;
+#endif
+            }
+        }
+    }
+
+    //Quiet move stage
+    chess_board.PopulateQuietMoveList(move_list);
+    Evaluator::ScoreMoveList(move_list, chess_board, ply);
+    while (move_list.GetMoveCount() > 0) {
+        int move = Evaluator::SelectBestMove(move_list);
+
+        if (move == tt_move) {
+            continue;
+        }
+
+        if (!chess_board.MakeMove(move)) {
+            continue;
+        }
+
+        //50-move/Three fold repetition check
+        if (chess_board.GetHalfClock() >= 100 || chess_board.IsPositionRepeated()) {
+            chess_board.UnmakeMove(move);
+            return 0;
+        }
+
+        if (first_move) {
+            score = -Negamax(-beta, -alpha, chess_board, depth - 1, ply + 1);
+            first_move = false;
+        } else {
             bool is_promotion = (MoveList::DecodeGetPromotedPiece(move) != NoPiece);
             bool is_checking = chess_board.IsKingInCheck();
             int reduction = 0;
 
             //LMR condition
-            if (depth >= reduction_limit && move_index >= full_depth_move_limit && !is_check && !is_capture && !
+            if (depth >= reduction_limit && move_index >= full_depth_move_limit && !is_check && !
                 is_promotion && !is_checking) {
                 reduction = lmr_table[std::min(63, depth)][std::min(63, move_index)];
             }
@@ -229,8 +329,6 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         }
     }
 
-    //TODO: Split quiet move here
-
     //No legal move
     if (legal_move == 0) {
         if (chess_board.IsKingInCheck()) {
@@ -250,7 +348,7 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
 }
 
 int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply) {
-    if (chess_board.IsPositionRepeated() || chess_board.GetHalfClock() >= 100) {
+    if (chess_board.GetHalfClock() >= 100 || chess_board.IsPositionRepeated()) {
         return 0;
     }
 
@@ -286,23 +384,42 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
 
     ++node;
 
+    int score = 0;
+    if (tt_move != 0) {
+        chess_board.MakeMove(tt_move);
+        score = -QuiescenceSearch(-beta, -alpha, chess_board, ply + 1);
+        chess_board.UnmakeMove(tt_move);
+
+        if (score >= beta) {
+            //Node (move) fail high
+            return beta;
+        }
+
+        if (score > alpha) {
+            //PV node (move)
+            alpha = score;
+            flag = ExactFlag;
+        }
+    }
+
     MoveList move_list;
     chess_board.PopulateCaptureMoveList(move_list);
     int best_move_so_far = tt_move;
-    Evaluator::ScoreMoveList(move_list, chess_board, ply, tt_move);
+    Evaluator::ScoreMoveList(move_list, chess_board, ply);
     while (move_list.GetMoveCount() > 0) {
         int move = Evaluator::SelectBestMove(move_list);
 
-        if (!chess_board.MakeCaptureMove(move)) {
+        if (!chess_board.MakeMove(move)) {
             continue;
         }
 
-        int score = -QuiescenceSearch(-beta, -alpha, chess_board, ply + 1);
+        score = -QuiescenceSearch(-beta, -alpha, chess_board, ply + 1);
 
         chess_board.UnmakeMove(move);
 
         //Fail-hard beta cutoff
         if (score >= beta) {
+            hash_table.AddEntry(chess_board.GetPositionHashKey(), -1, ply, beta, BetaFlag, move);
             //Node (move) fail high
             return beta;
         }

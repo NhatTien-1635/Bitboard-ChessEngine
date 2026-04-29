@@ -102,6 +102,8 @@ public:
 
     void PopulateMoveList(MoveList &move_list);
 
+    void PopulateQuietMoveList(MoveList &move_list);
+
     void PopulateCaptureMoveList(MoveList &move_list);
 
     ChessBoard();
@@ -154,6 +156,9 @@ private:
 
     template<Side side>
     void PopulateCaptureMove(MoveList &move_list);
+
+    template<Side side>
+    void PopulateQuietMove(MoveList &move_list);
 
 public:
     static constexpr Side opponent_side[2] = {Black, White};

@@ -6,6 +6,8 @@
 #define BITMAPMANIPULATOR_EVALUATOR_H
 
 #include "ChessBoard.h"
+#include "Terminal.h"
+
 
 class Evaluator {
 public:
@@ -16,9 +18,9 @@ public:
     //Return the best captured move in the list. then it remove it out of the list.
     static int SelectBestMove(MoveList &move_list);
 
-    static void ScoreMoveList(MoveList &move_list, const ChessBoard& chess_board, int ply, int tt_move);
+    static void ScoreMoveList(MoveList &move_list, const ChessBoard& chess_board, int ply);
 
-    static int ScoreMove(int encoded_move, const ChessBoard &chess_board, int ply, int tt_move = 0);
+    static int ScoreMove(int encoded_move, const ChessBoard &chess_board, int ply);
 
     static void StoreKillerMove(int encoded_move, int ply){
         killer_moves[1][ply] = killer_moves[0][ply];
@@ -50,6 +52,16 @@ private:
      *  URL: https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
      */
 private:
+    static constexpr int midgame_double_pawn_penalty = -10;
+    static constexpr int midgame_isolated_pawn_penalty = -15;
+    static constexpr int midgame_passed_pawn_bonus[8] = {0, 5, 10, 20, 40, 70, 120, 250};
+
+    static constexpr int endgame_double_pawn_penalty = -25;
+    static constexpr int endgame_isolated_pawn_penalty = -35;
+    static constexpr int endgame_passed_pawn_bonus[8] = {0, 20, 40, 80, 150, 200, 350, 450};
+
+    static constexpr int tempo = 10;
+
     static int midgame_table[12][64];
     static int endgame_table[12][64];
 
@@ -65,10 +77,16 @@ private:
     };
 
     //Killer move [id][ply]
-    static int killer_moves[2][64];
+    static int killer_moves[2][256];
 
     //History move [piece][square]
-    static int history_moves[12][64];
+    static int history_moves[12][256];
+
+    static Bitmap file_mask[64];
+    static Bitmap rank_mask[64];
+
+    static Bitmap isolated_pawn_mask[64];
+    static Bitmap passed_pawn_mask[2][64];
 
     static constexpr int midgame_pawn_value[64] = {
 #include "../Data/Evaluation_Value/MidgamePawnValue.dat"

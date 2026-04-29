@@ -4,10 +4,16 @@
 
 #include "../Header/Evaluator.h"
 
-int Evaluator::midgame_table[12][64];
-int Evaluator::endgame_table[12][64];
-int Evaluator::killer_moves[2][64]{};
-int Evaluator::history_moves[12][64]{};
+int Evaluator::midgame_table[12][64]{};
+int Evaluator::endgame_table[12][64]{};
+int Evaluator::killer_moves[2][256]{};
+int Evaluator::history_moves[12][256]{};
+
+Bitmap Evaluator::file_mask[64]{};
+Bitmap Evaluator::rank_mask[64]{};
+Bitmap Evaluator::isolated_pawn_mask[64]{};
+Bitmap Evaluator::passed_pawn_mask[2][64]{};
+
 
 void Evaluator::InitializeEvaluationTable() {
     //Loop over every piece
@@ -25,6 +31,32 @@ void Evaluator::InitializeEvaluationTable() {
             }
         }
     }
+
+    for (int square = 0; square < 64; ++square) {
+        int file = square & 7;  //square & 0b0111
+        int rank = square >> 3; //square / 8 (2^3)
+
+        //Init file rank mask
+        file_mask[square] = Bitmap::GetFileMask(file);
+        rank_mask[square] = Bitmap::GetRankMask(rank);
+
+        //Init isolated pawn mask
+        if (file < 7) isolated_pawn_mask[square] |= Bitmap::GetFileMask(file + 1);
+        if (file > 0) isolated_pawn_mask[square] |= Bitmap::GetFileMask(file - 1);
+
+        //Init passed pawn mask
+        passed_pawn_mask[White][square] = isolated_pawn_mask[square] | Bitmap::GetFileMask(file);
+        passed_pawn_mask[Black][square] = isolated_pawn_mask[square] | Bitmap::GetFileMask(file);
+
+        //Removing irrelevant rank
+        for (int i_rank = 7; i_rank >= rank; --i_rank) {
+            passed_pawn_mask[White][square] &= ~Bitmap::GetRankMask(i_rank);
+        }
+
+        for (int i_rank = 0; i_rank <= rank; ++i_rank) {
+            passed_pawn_mask[Black][square] &= ~Bitmap::GetRankMask(i_rank);
+        }
+    }
 }
 
 int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
@@ -32,10 +64,57 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
     int endgame[2] = {};
     int midgame_phase = 0;
 
-    for (int square = 0; square < 64; ++square) {
-        Piece piece = chess_board.At(square);
-        if (piece != NoPiece) {
+    Bitmap bitboard;
+    for (int piece = 0; piece < 12; ++piece) {
+        bitboard = chess_board.GetPieceBitmap(piece);
+
+        while (bitboard) {
+            int square = bitboard.GetFirstLSBIndex();
+            bitboard.RemoveBit(square);
+
             Side piece_side = Side(piece / 6);
+
+            //Double pawn check
+            if (piece == WhitePawn){
+                Bitmap file_map = file_mask[square] & chess_board.GetPieceBitmap(WhitePawn);
+                int pawn_count = file_map.GetBitCount();
+
+                if (pawn_count > 1) {
+                    midgame[piece_side] += midgame_double_pawn_penalty * (pawn_count - 1);  //We only add penalty to the extra pawns
+                    endgame[piece_side] += endgame_double_pawn_penalty * (pawn_count - 1);
+                }
+
+                if (!(isolated_pawn_mask[square] & chess_board.GetPieceBitmap(WhitePawn))){
+                    midgame[piece_side] += midgame_isolated_pawn_penalty;
+                    endgame[piece_side] += endgame_isolated_pawn_penalty;
+                }
+
+                if (!(passed_pawn_mask[White][square] & chess_board.GetPieceBitmap(BlackPawn))) {
+                    midgame[piece_side] += midgame_passed_pawn_bonus[7 - (square >> 3)];
+                    endgame[piece_side] += endgame_passed_pawn_bonus[7 - (square >> 3)];
+                }
+            }
+
+            if (piece == BlackPawn){
+                Bitmap file_map = file_mask[square] & chess_board.GetPieceBitmap(BlackPawn);
+                int pawn_count = file_map.GetBitCount();
+
+                if (pawn_count > 1) {
+                    midgame[piece_side] += midgame_double_pawn_penalty * (pawn_count - 1);
+                    endgame[piece_side] += endgame_double_pawn_penalty * (pawn_count - 1);
+                }
+
+                if (!(isolated_pawn_mask[square] & chess_board.GetPieceBitmap(BlackPawn))){
+                    midgame[piece_side] += midgame_isolated_pawn_penalty;
+                    endgame[piece_side] += endgame_isolated_pawn_penalty;
+                }
+
+                if (!(passed_pawn_mask[Black][square] & chess_board.GetPieceBitmap(WhitePawn))) {
+                    midgame[piece_side] += midgame_passed_pawn_bonus[square >> 3];
+                    endgame[piece_side] += endgame_passed_pawn_bonus[square >> 3];
+                }
+            }
+
             midgame_phase += game_phase_table[piece];
 
             midgame[piece_side] += midgame_table[piece][square];
@@ -43,11 +122,10 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
         }
     }
 
-
     int midgame_score = midgame[chess_board.CurrentSide()] - midgame[ChessBoard::opponent_side[chess_board.
-                            CurrentSide()]];
+                            CurrentSide()]] + tempo;
     int endgame_score = endgame[chess_board.CurrentSide()] - endgame[ChessBoard::opponent_side[chess_board.
-                            CurrentSide()]];
+                            CurrentSide()]] + tempo;
     if (midgame_phase > 24) {
         midgame_phase = 24;
     }
@@ -76,23 +154,19 @@ int Evaluator::SelectBestMove(MoveList &move_list) {
     return move;
 }
 
-void Evaluator::ScoreMoveList(MoveList &move_list, const ChessBoard &chess_board, int ply, int tt_move) {
+void Evaluator::ScoreMoveList(MoveList &move_list, const ChessBoard &chess_board, int ply) {
     int move_count = move_list.GetMoveCount();
 
     for (int i = 0; i < move_count; ++i) {
-        move_list.AddScore(i, ScoreMove(move_list.GetMove(i), chess_board, ply, tt_move));
+        move_list.AddScore(i, ScoreMove(move_list.GetMove(i), chess_board, ply));
     }
 }
 
-int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int ply, int tt_move) {
-    if (encoded_move != 0 && encoded_move == tt_move) {
-        return 1000000;
-    }
-
+int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int ply) {
     if (MoveList::DecodeGetCapturePiece(encoded_move) != NoPiece) {
         int see_score = GetScoreSEE(encoded_move, chess_board);
         if (see_score < 0) {
-            return  see_score;
+            return see_score;
         }
         return 100000 + mvv_laa_table[MoveList::DecodeGetPiece(encoded_move) % 6][
                    MoveList::DecodeGetCapturePiece(encoded_move) % 6];

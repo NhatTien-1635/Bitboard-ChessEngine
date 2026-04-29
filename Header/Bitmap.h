@@ -17,9 +17,9 @@ public:
 
     inline int GetBitCount() const;
 
-    inline static Bitmap GetRowMask(int row);
+    inline static Bitmap GetRankMask(int row);
 
-    inline static Bitmap GetColumnMask(int col);
+    inline static Bitmap GetFileMask(int col);
 
     inline bool MoveBit(int from, int to);
 
@@ -155,11 +155,12 @@ Bitmap::operator uint64_t() const {
     return raw_bitmap;
 }
 
-Bitmap Bitmap::GetRowMask(int row) {
+Bitmap Bitmap::GetRankMask(int row) {
     return filled_first_row_bitmap << (row * 8);
 }
 
-Bitmap Bitmap::GetColumnMask(int col) {
+Bitmap Bitmap::GetFileMask(int col) {
+
     return filled_first_col_bitmap << col;
 }
 
