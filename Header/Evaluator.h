@@ -60,6 +60,13 @@ private:
     static constexpr int endgame_isolated_pawn_penalty = -35;
     static constexpr int endgame_passed_pawn_bonus[8] = {0, 20, 40, 80, 150, 200, 350, 450};
 
+    static constexpr int midgame_semi_open_file_bonus = 10;
+    static constexpr int endgame_semi_open_file_bonus = 20;
+
+    static constexpr int midgame_open_file_bonus = 25;
+    static constexpr int endgame_open_file_bonus = 45;
+
+
     static constexpr int tempo = 10;
 
     static int midgame_table[12][64];

@@ -115,6 +115,56 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
                 }
             }
 
+            if (piece == WhiteRook) {
+                if (!(file_mask[square] & chess_board.GetPieceBitmap(WhitePawn))) {
+                    midgame[piece_side] += midgame_semi_open_file_bonus;
+                    endgame[piece_side] += endgame_semi_open_file_bonus;
+                }
+
+                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
+                    midgame[piece_side] += midgame_open_file_bonus;
+                    endgame[piece_side] += endgame_open_file_bonus;
+                }
+            }
+
+            if (piece == BlackRook) {
+                if (!(file_mask[square] & chess_board.GetPieceBitmap(BlackPawn))) {
+                    midgame[piece_side] += midgame_semi_open_file_bonus;
+                    endgame[piece_side] += endgame_semi_open_file_bonus;
+                }
+
+                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
+                    midgame[piece_side] += midgame_open_file_bonus;
+                    endgame[piece_side] += endgame_open_file_bonus;
+                }
+            }
+
+            //Penalty for open king
+            if (piece == WhiteKing) {
+                if (!(file_mask[square] & chess_board.GetPieceBitmap(WhitePawn))) {
+                    midgame[piece_side] -= 2 * midgame_semi_open_file_bonus;
+                    endgame[piece_side] -= 2 * endgame_semi_open_file_bonus;
+                }
+
+                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
+                    midgame[piece_side] -= 2 * midgame_open_file_bonus;
+                    endgame[piece_side] -= 2 * endgame_open_file_bonus;
+                }
+            }
+
+            //Penalty for open king
+            if (piece == BlackKing) {
+                if (!(file_mask[square] & chess_board.GetPieceBitmap(BlackPawn))) {
+                    midgame[piece_side] -= 2 * midgame_semi_open_file_bonus;
+                    endgame[piece_side] -= 2 * endgame_semi_open_file_bonus;
+                }
+
+                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
+                    midgame[piece_side] -= 2 * midgame_open_file_bonus;
+                    endgame[piece_side] -= 2 * endgame_open_file_bonus;
+                }
+            }
+
             midgame_phase += game_phase_table[piece];
 
             midgame[piece_side] += midgame_table[piece][square];
