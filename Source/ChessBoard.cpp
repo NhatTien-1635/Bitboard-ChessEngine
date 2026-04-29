@@ -30,6 +30,8 @@ void ChessBoard::PrintBoard() const {
         print_val = "Black";
     }
     std::cout << "Side to move: " << print_val << '\n';
+    std::cout << "Turn count: " << board_state.turn_count << '\n';
+    std::cout << "Half clock: " << board_state.half_clock << '\n';
 
     //Print castling
     print_val.clear();
@@ -331,10 +333,6 @@ bool ChessBoard::MakeMove(int encoded_move) {
         board_state.half_clock = 0;
     }
 
-    if (board_state.half_clock == 100) {
-        // return false;
-    }
-
     //King in check
     if (IsSquaredAttacked(piece_bitboard[history[game_ply - 1].side_to_move * 6 + WhiteKing].GetFirstLSBIndex(),
                           opponent_side[history[game_ply - 1].side_to_move])) {
@@ -366,6 +364,12 @@ void ChessBoard::MakeNullMove() {
     }
     board_state.en_passant = NoSquare;
     board_state.hash_key = TranspositionTable::GetKey();
+
+    if (board_state.side_to_move == White) {
+        ++board_state.turn_count;
+    }
+
+    ++board_state.half_clock;
 }
 
 void ChessBoard::UnmakeMove(int encoded_move) {
@@ -470,10 +474,7 @@ void ChessBoard::UnmakeNullMove() {
 }
 
 bool ChessBoard::HasMajorPieceLeft(Side side) const {
-    if (!(occupancy_bitboard[side] & (piece_bitboard[side * 6 + WhitePawn] | piece_bitboard[side * 6 + WhiteKing]))) {
-        return false;
-    }
-    return true;
+    return ((occupancy_bitboard[side] & ~(piece_bitboard[side * 6 + WhitePawn] | piece_bitboard[side * 6 + WhiteKing])) != 0);
 }
 
 //Check if the square is attacked by the attacker Side
@@ -534,6 +535,16 @@ ChessBoard::ChessBoard(const std::string_view &FEN) {
     TranspositionTable::SetKey(TranspositionTable::GenerateKey(*this));
 }
 
+bool ChessBoard::IsPositionRepeated() const {
+    int start = std::max(0, game_ply - board_state.half_clock);
+    for (int index = start; index < game_ply; ++index) {
+        if (board_state.hash_key == history[index].hash_key) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ChessBoard::ClearBoard() {
     for (int i = 0; i < 64; ++i) {
         mailbox[i] = NoPiece;
@@ -552,6 +563,7 @@ void ChessBoard::ClearBoard() {
     board_state.castling_right = (CastlingRight) 0;
     board_state.turn_count = 0;
     board_state.half_clock = 0;
+    game_ply = 0;
 }
 
 void ChessBoard::PopulateMoveList(MoveList &move_list) {

@@ -70,7 +70,7 @@ struct BoardState {
     uint8_t castling_right = 0b1111;
 
     uint32_t turn_count = 0;
-    uint32_t half_clock = 0;
+    int32_t half_clock = 0;
 
     uint64_t hash_key = 0;
 };
@@ -129,6 +129,16 @@ public:
                                  opponent_side[board_state.side_to_move]);
     }
 
+    bool IsPositionRepeated() const;
+
+    int GetHalfClock() const {
+        return board_state.half_clock;
+    }
+
+    int GetTurnCount() const {
+        return board_state.turn_count;
+    }
+
     void ClearBoard();
 
     static Piece CharToPieceIndex(char str);
@@ -136,6 +146,7 @@ public:
     static char PieceToChar(int piece);
 
     static int GetFlippedSquare(int square) { return square ^ 56; } //Black magic ts oooooo
+
 
 private:
     template<Side side>
@@ -168,7 +179,7 @@ private:
 
     BoardState board_state;
     BoardState history[1028];
-    int game_ply = 0;
+    int32_t game_ply = 0;
 
     /**
      * p = Pawn
@@ -253,7 +264,7 @@ private:
 
 int MoveList::EncodeMove(int source_square, int target_square, int piece, int promoted_piece, int captured_piece,
                          int double_push_flag, int enpassant_flag, int castling_flag) {
-    uint64_t encoded_move = 0ULL;
+    int encoded_move = 0;
 
     encoded_move |= source_square;
     encoded_move |= (target_square << ENCODE_TARGET_SQUARE_OFFSET);

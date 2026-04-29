@@ -88,6 +88,18 @@ void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_
 }
 
 int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int ply) {
+    //Mate pruning
+    int mate_score = Evaluator::infinity_score - ply;
+    if (alpha < -mate_score) {
+        alpha = -mate_score;
+    }
+    if (beta > mate_score - 1) {
+        beta = mate_score - 1;
+    }
+    if (alpha >= beta) {
+        return alpha;
+    }
+
     int tt_move = 0;
     int val = hash_table.ReadEntry(chess_board.GetPositionHashKey(), alpha, beta, depth, ply, tt_move);
     HashFlag flag = AlphaFlag;
@@ -115,10 +127,11 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
 
     //Null move pruning
     if (!is_check && depth >= full_depth_move_limit && ply > 0 && (beta - alpha == 1) && chess_board.HasMajorPieceLeft(
-            chess_board.CurrentSide())) {
+            chess_board.CurrentSide()) && chess_board.GetHalfClock() < 90) {
         chess_board.MakeNullMove();
         //Search with reduced depth to find beta cutoff
-        int null_score = -Negamax(-beta, -beta + 1, chess_board, depth - 1 - 2, ply + 1);
+        int reduction = (depth > 6) ? 3 : 2;
+        int null_score = -Negamax(-beta, -beta + 1, chess_board, depth - 1 - reduction, ply + 1);
         chess_board.UnmakeNullMove();
 
         if (null_score >= beta) {
@@ -130,18 +143,26 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
     int best_move_so_far = tt_move;
     int old_alpha = alpha;
     int legal_move = 0;
+
+    //TODO: Add doing tt_move here first
+
     chess_board.PopulateMoveList(move_list);
 
     bool first_move = true;
     int move_index = 0;
 
     Evaluator::ScoreMoveList(move_list, chess_board, ply, tt_move);
-
     while (move_list.GetMoveCount() > 0) {
         int move = Evaluator::SelectBestMove(move_list);
 
         if (!chess_board.MakeMove(move)) {
             continue;
+        }
+
+        //50-move/Three fold repetition check
+        if (chess_board.IsPositionRepeated() || chess_board.GetHalfClock() >= 100) {
+            chess_board.UnmakeMove(move);
+            return 0;
         }
 
         int score = 0;
@@ -208,6 +229,8 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         }
     }
 
+    //TODO: Split quiet move here
+
     //No legal move
     if (legal_move == 0) {
         if (chess_board.IsKingInCheck()) {
@@ -227,6 +250,21 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
 }
 
 int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply) {
+    if (chess_board.IsPositionRepeated() || chess_board.GetHalfClock() >= 100) {
+        return 0;
+    }
+
+    int mate_score = Evaluator::infinity_score - ply;
+    if (alpha < -mate_score) {
+        alpha = -mate_score;
+    }
+    if (beta > mate_score - 1) {
+        beta = mate_score - 1;
+    }
+    if (alpha >= beta) {
+        return alpha;
+    }
+
     int tt_move = 0;
     int val = hash_table.ReadEntry(chess_board.GetPositionHashKey(), alpha, beta, -1, ply, tt_move);
     HashFlag flag = AlphaFlag;
@@ -252,7 +290,6 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
     chess_board.PopulateCaptureMoveList(move_list);
     int best_move_so_far = tt_move;
     Evaluator::ScoreMoveList(move_list, chess_board, ply, tt_move);
-
     while (move_list.GetMoveCount() > 0) {
         int move = Evaluator::SelectBestMove(move_list);
 

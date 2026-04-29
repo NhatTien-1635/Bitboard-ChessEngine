@@ -92,7 +92,7 @@ int Evaluator::ScoreMove(int encoded_move, const ChessBoard &chess_board, int pl
     if (MoveList::DecodeGetCapturePiece(encoded_move) != NoPiece) {
         int see_score = GetScoreSEE(encoded_move, chess_board);
         if (see_score < 0) {
-            return see_score;
+            return  see_score;
         }
         return 100000 + mvv_laa_table[MoveList::DecodeGetPiece(encoded_move) % 6][
                    MoveList::DecodeGetCapturePiece(encoded_move) % 6];

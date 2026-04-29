@@ -12,7 +12,7 @@
 
 //Debug macros
 //==================================
-// #define PRINT_DEBUG
+#define PRINT_DEBUG
 #define SPEED_TEST
 //==================================
 

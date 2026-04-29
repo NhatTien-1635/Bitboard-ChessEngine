@@ -24,7 +24,7 @@ namespace {
 
 namespace PseudoRandomNumberGenerator {
     uint64_t GenerateRandomNumber64bit() {
-#ifdef DEBUG_PSEUDO_RANDOM_GENERATOR
+#ifdef STABLE_PSEUDO_RANDOM_GENERATOR
         uint64_t first = GetRandomNumber();
         uint64_t second = GetRandomNumber();
         uint64_t third = GetRandomNumber();
@@ -36,8 +36,8 @@ namespace PseudoRandomNumberGenerator {
                (first & 0xffff);
 
 #else
-        std::random_device rd;
-        std::mt19937_64 gen(rd());
+        // std::random_device rd;
+        static std::mt19937_64 gen(264584);  //Random seed happened to be faster on starting position depth 15.
         std::uniform_int_distribution<std::uint64_t> dis;
         return dis(gen);
 #endif
