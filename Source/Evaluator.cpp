@@ -4,6 +4,8 @@
 
 #include "../Header/Evaluator.h"
 
+#include "../Header/PerformanceTest.h"
+
 int Evaluator::midgame_table[12][64]{};
 int Evaluator::endgame_table[12][64]{};
 int Evaluator::killer_moves[2][256]{};
@@ -13,7 +15,8 @@ Bitmap Evaluator::file_mask[64]{};
 Bitmap Evaluator::rank_mask[64]{};
 Bitmap Evaluator::isolated_pawn_mask[64]{};
 Bitmap Evaluator::passed_pawn_mask[2][64]{};
-
+Bitmap Evaluator::king_safety_zone_mask[64]{};
+Bitmap Evaluator::king_shield_mask[64]{};
 
 void Evaluator::InitializeEvaluationTable() {
     //Loop over every piece
@@ -33,7 +36,7 @@ void Evaluator::InitializeEvaluationTable() {
     }
 
     for (int square = 0; square < 64; ++square) {
-        int file = square & 7;  //square & 0b0111
+        int file = square & 7; //square & 0b0111
         int rank = square >> 3; //square / 8 (2^3)
 
         //Init file rank mask
@@ -56,6 +59,24 @@ void Evaluator::InitializeEvaluationTable() {
         for (int i_rank = 0; i_rank <= rank; ++i_rank) {
             passed_pawn_mask[Black][square] &= ~Bitmap::GetRankMask(i_rank);
         }
+
+        //Init king-zone mask
+        Bitmap file_zone;
+        Bitmap rank_zone;
+
+        if (file - 1 >= 0) file_zone |= Bitmap::GetFileMask(file - 1);
+        file_zone |= Bitmap::GetFileMask(file);
+        if (file + 1 <= 7) file_zone |= Bitmap::GetFileMask(file + 1);
+
+        if (rank - 1 >= 0) rank_zone |= Bitmap::GetRankMask(rank - 1);
+        rank_zone |= Bitmap::GetRankMask(rank);
+        if (rank + 1 <= 7) rank_zone |= Bitmap::GetRankMask(rank + 1);
+
+        king_shield_mask[square] = rank_zone & file_zone;
+
+        if (file + 2 <= 7) file_zone |= Bitmap::GetFileMask(file + 2);
+        if (file - 2 >= 0) file_zone |= Bitmap::GetFileMask(file - 2);
+        king_safety_zone_mask[square] = rank_zone & file_zone;
     }
 }
 
@@ -75,16 +96,17 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
             Side piece_side = Side(piece / 6);
 
             //Double pawn check
-            if (piece == WhitePawn){
+            if (piece == WhitePawn) {
                 Bitmap file_map = file_mask[square] & chess_board.GetPieceBitmap(WhitePawn);
                 int pawn_count = file_map.GetBitCount();
 
                 if (pawn_count > 1) {
-                    midgame[piece_side] += midgame_double_pawn_penalty * (pawn_count - 1);  //We only add penalty to the extra pawns
+                    midgame[piece_side] += midgame_double_pawn_penalty * (pawn_count - 1);
+                    //We only add penalty to the extra pawns
                     endgame[piece_side] += endgame_double_pawn_penalty * (pawn_count - 1);
                 }
 
-                if (!(isolated_pawn_mask[square] & chess_board.GetPieceBitmap(WhitePawn))){
+                if (!(isolated_pawn_mask[square] & chess_board.GetPieceBitmap(WhitePawn))) {
                     midgame[piece_side] += midgame_isolated_pawn_penalty;
                     endgame[piece_side] += endgame_isolated_pawn_penalty;
                 }
@@ -95,7 +117,7 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
                 }
             }
 
-            if (piece == BlackPawn){
+            if (piece == BlackPawn) {
                 Bitmap file_map = file_mask[square] & chess_board.GetPieceBitmap(BlackPawn);
                 int pawn_count = file_map.GetBitCount();
 
@@ -104,7 +126,7 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
                     endgame[piece_side] += endgame_double_pawn_penalty * (pawn_count - 1);
                 }
 
-                if (!(isolated_pawn_mask[square] & chess_board.GetPieceBitmap(BlackPawn))){
+                if (!(isolated_pawn_mask[square] & chess_board.GetPieceBitmap(BlackPawn))) {
                     midgame[piece_side] += midgame_isolated_pawn_penalty;
                     endgame[piece_side] += endgame_isolated_pawn_penalty;
                 }
@@ -121,7 +143,8 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
                     endgame[piece_side] += endgame_semi_open_file_bonus;
                 }
 
-                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
+                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.
+                                           GetPieceBitmap(BlackPawn)))) {
                     midgame[piece_side] += midgame_open_file_bonus;
                     endgame[piece_side] += endgame_open_file_bonus;
                 }
@@ -133,42 +156,31 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
                     endgame[piece_side] += endgame_semi_open_file_bonus;
                 }
 
-                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
+                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.
+                                           GetPieceBitmap(BlackPawn)))) {
                     midgame[piece_side] += midgame_open_file_bonus;
                     endgame[piece_side] += endgame_open_file_bonus;
                 }
             }
 
-            //Penalty for open king
+            //Calculate king safety
             if (piece == WhiteKing) {
-                if (!(file_mask[square] & chess_board.GetPieceBitmap(WhitePawn))) {
-                    midgame[piece_side] -= 2 * midgame_semi_open_file_bonus;
-                    endgame[piece_side] -= 2 * endgame_semi_open_file_bonus;
-                }
-
-                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
-                    midgame[piece_side] -= 2 * midgame_open_file_bonus;
-                    endgame[piece_side] -= 2 * endgame_open_file_bonus;
-                }
+                midgame[piece_side] += CalculateKingSafetyScore(chess_board, square, White, true);
+                endgame[piece_side] += CalculateKingSafetyScore(chess_board, square, White, false);
             }
 
-            //Penalty for open king
             if (piece == BlackKing) {
-                if (!(file_mask[square] & chess_board.GetPieceBitmap(BlackPawn))) {
-                    midgame[piece_side] -= 2 * midgame_semi_open_file_bonus;
-                    endgame[piece_side] -= 2 * endgame_semi_open_file_bonus;
-                }
-
-                if (!(file_mask[square] & (chess_board.GetPieceBitmap(WhitePawn) | chess_board.GetPieceBitmap(BlackPawn)))) {
-                    midgame[piece_side] -= 2 * midgame_open_file_bonus;
-                    endgame[piece_side] -= 2 * endgame_open_file_bonus;
-                }
+                midgame[piece_side] += CalculateKingSafetyScore(chess_board, square, Black, true);
+                endgame[piece_side] += CalculateKingSafetyScore(chess_board, square, Black, false);
             }
 
+            //Piece value + positional score
             midgame_phase += game_phase_table[piece];
-
             midgame[piece_side] += midgame_table[piece][square];
             endgame[piece_side] += endgame_table[piece][square];
+
+            midgame[piece_side] += MoveGenerator::GetAttack(piece, square, piece_side, chess_board.GetOccupancyBitboard(Both)).GetBitCount() * midgame_activity_multiplier;
+            endgame[piece_side] += MoveGenerator::GetAttack(piece, square, piece_side, chess_board.GetOccupancyBitboard(Both)).GetBitCount() * endgame_activity_multiplier;
         }
     }
 
@@ -281,4 +293,49 @@ int Evaluator::GetScoreSEE(int encoded_move, const ChessBoard &chess_board) {
         gain[depth - 1] = -std::max(-gain[depth - 1], gain[depth]);
     }
     return gain[0];
+}
+
+int Evaluator::CalculateKingSafetyScore(const ChessBoard &chess_board, int king_square, Side current_side,
+                                        bool mid_game) {
+    Bitmap shielded_bitboard = king_shield_mask[king_square] & chess_board.GetOccupancyBitboard(current_side);
+    Bitmap vulnerable_bitboard = king_safety_zone_mask[king_square] & ~chess_board.GetOccupancyBitboard(current_side);
+
+    int total_score = 0;
+
+    //Checking if the king is in check
+    if (chess_board.IsSquaredAttacked(king_square, ChessBoard::opponent_side[current_side])) {
+        total_score += king_in_check_penalty;
+    }
+
+    //Evaluate shielding piece
+    while (shielded_bitboard) {
+        int square = shielded_bitboard.GetFirstLSBIndex();
+        shielded_bitboard.RemoveBit(square);
+
+        if (mid_game) total_score += midgame_shield_score[chess_board.At(square) % 6];
+        else total_score += endgame_shield_score[chess_board.At(square) % 6];
+    }
+
+    Bitmap danger_zone = king_safety_zone_mask[king_square];
+    Bitmap enemy_attacker = chess_board.GetOccupancyBitboard(ChessBoard::opponent_side[current_side]);
+    while (enemy_attacker) {
+        int square = enemy_attacker.GetFirstLSBIndex();
+        enemy_attacker.RemoveBit(square);
+
+        Piece attacking_piece = chess_board.At(square);
+
+        Bitmap attack = MoveGenerator::GetAttack(attacking_piece, square, ChessBoard::opponent_side[current_side],
+                                                 chess_board.GetOccupancyBitboard(Both));
+
+        if (attack & danger_zone) {
+            int weight = mid_game
+                             ? midgame_vulnerability_penalty[attacking_piece % 6]
+                             : endgame_vulnerability_penalty[attacking_piece % 6];
+            if (attack & vulnerable_bitboard) {
+                weight *= 2;
+            }
+            total_score -= weight;
+        }
+    }
+    return total_score;
 }

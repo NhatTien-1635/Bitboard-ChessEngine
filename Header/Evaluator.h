@@ -18,24 +18,24 @@ public:
     //Return the best captured move in the list. then it remove it out of the list.
     static int SelectBestMove(MoveList &move_list);
 
-    static void ScoreMoveList(MoveList &move_list, const ChessBoard& chess_board, int ply);
+    static void ScoreMoveList(MoveList &move_list, const ChessBoard &chess_board, int ply);
 
     static int ScoreMove(int encoded_move, const ChessBoard &chess_board, int ply);
 
-    static void StoreKillerMove(int encoded_move, int ply){
+    static void StoreKillerMove(int encoded_move, int ply) {
         killer_moves[1][ply] = killer_moves[0][ply];
         killer_moves[0][ply] = encoded_move;
     }
 
-    static void UpdateHistoryMove(int encoded_move, int depth){
+    static void UpdateHistoryMove(int encoded_move, int depth) {
         history_moves[MoveList::DecodeGetPiece(encoded_move)][MoveList::DecodeGetTargetSquare(encoded_move)] += depth;
     }
 
     static void ClearHistoryKillerMoveTable() {
         std::memset(history_moves, 0, sizeof(history_moves));
         std::memset(killer_moves, 0, sizeof(killer_moves));
-
     }
+
 public:
     static constexpr int infinity_score = 50000;
 
@@ -47,11 +47,10 @@ public:
 private:
     static int GetScoreSEE(int encoded_move, const ChessBoard &chess_board);
 
-    /**
-     *  All value were taken from Chess Programming WIKI
-     *  URL: https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
-     */
+    static int CalculateKingSafetyScore(const ChessBoard &chess_board, int king_square, Side side, bool mid_game);
+
 private:
+    //Configuration for evaluation
     static constexpr int midgame_double_pawn_penalty = -10;
     static constexpr int midgame_isolated_pawn_penalty = -15;
     static constexpr int midgame_passed_pawn_bonus[8] = {0, 5, 10, 20, 40, 70, 120, 250};
@@ -66,9 +65,23 @@ private:
     static constexpr int midgame_open_file_bonus = 25;
     static constexpr int endgame_open_file_bonus = 45;
 
+    static constexpr int midgame_shield_score[6] = {15, 9, 5, 0, -20, 0};
+    static constexpr int endgame_shield_score[6] = {10, 10, 7, 4, 1, 0};
+
+    static constexpr int midgame_vulnerability_penalty[6] = {7, 12, 18, 22, 28, 30};
+    static constexpr int endgame_vulnerability_penalty[6] = {3, 12, 23, 35, 45, 45};
+
+    static constexpr int king_in_check_penalty = -100;
+
+    static constexpr double midgame_activity_multiplier = 0.3;
+    static constexpr double endgame_activity_multiplier = 0.65;
 
     static constexpr int tempo = 10;
 
+    /**
+    *  All value were taken from Chess Programming WIKI
+    *  URL: https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
+    */
     static int midgame_table[12][64];
     static int endgame_table[12][64];
 
@@ -77,7 +90,7 @@ private:
     static constexpr int midgame_value[6] = {82, 337, 365, 477, 1025, 0};
     static constexpr int endgame_value[6] = {94, 281, 297, 512, 936, 0};
 
-    static constexpr int see_piece_value[6] = {100, 300, 300, 500, 900, 4000};
+    static constexpr int see_piece_value[6] = {100, 300, 300, 500, 900, 5000};
 
     static constexpr int mvv_laa_table[6][6] = {
 #include "../Data/mvv_lva_data.dat"
@@ -94,6 +107,9 @@ private:
 
     static Bitmap isolated_pawn_mask[64];
     static Bitmap passed_pawn_mask[2][64];
+
+    static Bitmap king_shield_mask[64];
+    static Bitmap king_safety_zone_mask[64];
 
     static constexpr int midgame_pawn_value[64] = {
 #include "../Data/Evaluation_Value/MidgamePawnValue.dat"

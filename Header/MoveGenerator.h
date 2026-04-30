@@ -33,6 +33,8 @@ class MoveGenerator {
 public:
     static void InitGenerator();
 
+    inline static Bitmap GetAttack(uint8_t piece, int square, Side side, Bitmap occupancy);
+
     inline static Bitmap GetPawnAttack(int square, Side side);
 
     inline static Bitmap GetKnightAttack(int square);
@@ -105,6 +107,20 @@ private:
 #include "../Data/ChessSquareString.dat"
     };
 };
+
+Bitmap MoveGenerator::GetAttack(uint8_t piece, int square, Side side, Bitmap occupancy) {
+    switch (piece) {
+        case 0: return GetPawnAttack(square, side);
+        case 1: return GetKnightAttack(square);
+        case 2: return GetBishopAttack(square, occupancy);
+        case 3: return GetRookAttack(square, occupancy);
+        case 4: return GetQueenAttack(square, occupancy);
+        case 5: return GetKingAttack(square);
+        default:
+            return Bitmap();
+    }
+    return Bitmap();
+}
 
 Bitmap MoveGenerator::GetPawnAttack(int square, Side side) {
     if (square == 255 || square == -1) {
