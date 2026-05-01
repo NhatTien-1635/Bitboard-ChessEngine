@@ -3,7 +3,6 @@
 //
 
 #include "../Header/Engine.h"
-
 #include "../Header/Evaluator.h"
 
 TranspositionTable Engine::hash_table;
@@ -11,8 +10,6 @@ int Engine::pv_length = 0;
 int Engine::pv_table[Engine::max_ply]{};
 int Engine::best_move = 0;
 int Engine::lmr_table[64][64]{};
-
-uint64_t Engine::node = 0;
 
 #ifdef SPEED_TEST
 std::chrono::duration<double> Engine::run_time;
@@ -34,23 +31,45 @@ void Engine::InitTableLMR() {
 }
 
 int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
+#ifdef PRINT_DEBUG
     std::cout << "Search best move position:\n";
     std::cout << "================================================\n";
     chess_board.PrintBoard();
+#endif
 
 #ifdef SPEED_TEST
     auto start_time = std::chrono::steady_clock::now();
 #endif
-
-    node = 0;
     pv_length = 0;
     Evaluator::ClearHistoryKillerMoveTable();
-    hash_table.ClearTable();
 
     std::memset(pv_table, 0, sizeof(pv_table));
     for (int current_depth = 1; current_depth <= depth; ++current_depth) {
-        Negamax(-Evaluator::infinity_score, Evaluator::infinity_score, chess_board, current_depth, 0);
+        int score = Negamax(-Evaluator::infinity_score, Evaluator::infinity_score, chess_board, current_depth, 0);
         ExtractPV(chess_board, current_depth);
+
+        if (Limits::stop_flag) {
+            break;
+        }
+
+        constexpr int mate_threshold = 49000;
+
+        //Print info for the GUI
+        std::cout << "info depth " << current_depth;
+
+        if (std::abs(score) > mate_threshold) {
+            int mate_in_moves = (Evaluator::infinity_score - std::abs(score) + 1) / 2;
+            std::cout << " score mate " << ((score > 0) ? mate_in_moves : -mate_in_moves);
+        }
+        else {
+            std::cout << " score cp " << score;
+        }
+
+
+        std::cout << " nodes " << Limits::node_count
+                << " time " << (Limits::GetTimeMs() - Limits::start_time)
+                << " pv " << GetPVString() << std::endl;
+
 
 #ifdef PRINT_DEBUG
         std::cout << "================================================\n";
@@ -70,10 +89,14 @@ int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
 #ifdef SPEED_TEST
     run_time = std::chrono::steady_clock::now() - start_time;
     std::cout << "Search time at depth " << depth << ": " << run_time.count() << '\n';
-    std::cout << "Node count: " << node << '\n';
+    std::cout << "Node count: " << Limits::node_count << '\n';
 #endif
 
     return pv_table[0];
+}
+
+void Engine::ClearHashTable() {
+    hash_table.ClearTable();
 }
 
 void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_board) {
@@ -88,6 +111,10 @@ void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_
 }
 
 int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int ply) {
+    if (Limits::ShouldStopSearching()) {
+        return 0;
+    }
+
     //Mate pruning
     int mate_score = Evaluator::infinity_score - ply;
     if (alpha < -mate_score) {
@@ -123,7 +150,7 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
         }
     }
 
-    ++node;
+    ++Limits::node_count;
 
     //Null move pruning
     if (!is_check && depth >= full_depth_move_limit && ply > 0 && (beta - alpha == 1) && chess_board.HasMajorPieceLeft(
@@ -348,6 +375,10 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
 }
 
 int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply) {
+    if (Limits::ShouldStopSearching()) {
+        return 0;
+    }
+
     if (chess_board.GetHalfClock() >= 100 || chess_board.IsPositionRepeated()) {
         return 0;
     }
@@ -382,7 +413,7 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
         alpha = evaluation;
     }
 
-    ++node;
+    ++Limits::node_count;
 
     int score = 0;
     if (tt_move != 0) {
@@ -455,4 +486,13 @@ int Engine::ExtractPV(ChessBoard &chess_board, int depth) {
 
     pv_length = pv_count;
     return pv_count > 0 ? pv_table[0] : 0;
+}
+
+std::string Engine::GetPVString() {
+    std::string pv_string;
+
+    for (int index = 0; index < pv_length; ++index) {
+        pv_string += Limits::GetMoveString(pv_table[index]) + ((index != pv_length - 1) ? " " : "");
+    }
+    return pv_string;
 }

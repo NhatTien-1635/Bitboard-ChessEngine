@@ -18,6 +18,7 @@
 #include <string>
 #include <sstream>
 #include <iostream>
+#include <thread>
 
 
 class UCI {
@@ -31,15 +32,15 @@ public:
 
     ~UCI();
 
-private:
     void ParseCommand(const std::string &line);
 
+private:
     void ParsePosition(const std::string &line);
 
     int ParseMove(const std::string &token);
 
 public:
-    void ParseGo(const std::string line);
+    void ParseGo(const std::string& line);
 
     void PrintBoard() const;
 

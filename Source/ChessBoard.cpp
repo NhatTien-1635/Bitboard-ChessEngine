@@ -177,6 +177,9 @@ void ChessBoard::ParsePositionFromFEN(std::string_view position) {
         ++str_index;
     }
     board_state.turn_count = full_move;
+
+    board_state.hash_key = TranspositionTable::GenerateKey(*this);
+    TranspositionTable::SetKey(TranspositionTable::GenerateKey(*this));
 }
 
 bool ChessBoard::MakeMove(int encoded_move) {
@@ -533,8 +536,6 @@ int ChessBoard::GetWeakestAttackerSquare(uint8_t square, uint8_t attacker, const
 
 ChessBoard::ChessBoard(const std::string_view &FEN) {
     ParsePositionFromFEN(FEN);
-    board_state.hash_key = TranspositionTable::GenerateKey(*this);
-    TranspositionTable::SetKey(TranspositionTable::GenerateKey(*this));
 }
 
 bool ChessBoard::IsPositionRepeated() const {
@@ -594,8 +595,6 @@ void ChessBoard::PopulateCaptureMoveList(MoveList &move_list) {
 
 ChessBoard::ChessBoard() {
     ParsePositionFromFEN(FEN_STARTING_POSITION);
-    board_state.hash_key = TranspositionTable::GenerateKey(*this);
-    TranspositionTable::SetKey(TranspositionTable::GenerateKey(*this));
 }
 
 Piece ChessBoard::CharToPieceIndex(char ch) {

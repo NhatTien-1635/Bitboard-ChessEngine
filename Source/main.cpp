@@ -4,19 +4,8 @@
 #define FEN_TEST_POSITION_2 "8/8/8/8/8/8/8/8 w - - 0 0"
 
 int main() {
-    bool debug = true;
-
-    if (debug) {
-        UCI uci;
-
-        uci.ParseCommand("position startpos moves e2e4");
-        uci.PrintBoard();
-
-    } else {
-        UCI uci;
-        uci.RunLoop();
-    }
-
+    UCI uci;
+    uci.RunLoop();
 
     return 0;
 }

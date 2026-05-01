@@ -4,6 +4,7 @@
 
 #include "../Header/UCI.h"
 
+
 void UCI::InitializeEngine() {
     MoveGenerator::InitGenerator();
     Evaluator::InitializeEvaluationTable();
@@ -14,21 +15,46 @@ void UCI::InitializeEngine() {
 void UCI::RunLoop() {
     std::string line;
     while (std::getline(std::cin, line)) {
-        ParseCommand(line);
+        if (line.find("quit") != std::string::npos) {
 
-        if (line == "quit") {
+            while (Limits::searching_flag) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+
             break;
         }
+
+        ParseCommand(line);
     }
 }
 
 void UCI::ParseCommand(const std::string &line) {
-    if (line.find("position") != std::string::npos) {
-        ParsePosition(line);
+    if (line.find("uci") != std::string::npos) {
+        std::cout << "id name Bitboard-ChessEngine\n"
+                "id author NhatTien-1635\n"
+                "uciok" << std::endl;
     }
 
-    if (line.find("go") != std::string::npos){
+    if (line.find("isready") != std::string::npos) {
+        std::cout << "readyok" << std::endl;
+    }
+
+    if (line.find("ucinewgame") != std::string::npos) {
+        Engine::ClearHashTable();
+        ParsePosition("position startpos");
+    }
+
+    if (line.find("position") != std::string::npos) {
+        ParsePosition(line);
+        chess_board.PrintBoard();
+    }
+
+    if (line.find("go") != std::string::npos) {
         ParseGo(line);
+    }
+
+    if (line.find("stop") != std::string::npos) {
+        Limits::stop_flag = true;
     }
 }
 
@@ -41,26 +67,23 @@ void UCI::ParsePosition(const std::string &line) {
 
     if (token == "startpos") {
         chess_board.ParsePositionFromFEN(FEN_STARTING_POSITION);
-    }
+        ss >> token;
+    } else if (token == "fen") {
+        std::string fen = "";
 
-    if (token == "fen") {
-        std::string fen;
-        for (int i = 0; i < 6; ++i) {
-            if (!(ss >> token) || token == "moves") break;
-            fen += (i == 0 ? "" : " ") + token;
+        while (ss >> token && token != "moves") {
+            fen += (fen.empty() ? "" : " ") + token;
         }
+
         chess_board.ParsePositionFromFEN(fen);
     }
 
-    //We reached the end
-    if (!(ss >> token) || token != "moves") {
-        return;
-    }
-
-    std::string move_token;
-    while (ss >> move_token) {
-        int move = ParseMove(move_token);
-        chess_board.MakeMove(move);
+    if (token == "moves") {
+        std::string move_token;
+        while (ss >> move_token) {
+            int move = ParseMove(move_token);
+            chess_board.MakeMove(move);
+        }
     }
 }
 
@@ -68,7 +91,6 @@ UCI::UCI() {
     InitializeEngine();
     chess_board.ParsePositionFromFEN(FEN_STARTING_POSITION);
 }
-
 UCI::~UCI() {
 }
 
@@ -96,36 +118,104 @@ int UCI::ParseMove(const std::string &token) {
             return move;
         }
 
-        //Checking promotion
-        char promoted_piece = token.at(4);
+        if (token.length() > 4) {
+            //Checking promotion
+            char promoted_piece = token.at(4);
 
-        //Promoted to a knight
-        if (promoted_piece == 'n' && (promotion_move == WhiteKnight || promotion_move == BlackKnight)) {
-            return move;
-        }
+            //Promoted to a knight
+            if (promoted_piece == 'n' && (promotion_move == WhiteKnight || promotion_move == BlackKnight)) {
+                return move;
+            }
 
-        //Promoted to a bishop
-        if (promoted_piece == 'b' && (promotion_move == WhiteBishop || promotion_move == BlackBishop)) {
-            return move;
-        }
+            //Promoted to a bishop
+            if (promoted_piece == 'b' && (promotion_move == WhiteBishop || promotion_move == BlackBishop)) {
+                return move;
+            }
 
-        //Promoted to a rook
-        if (promoted_piece == 'r' && (promotion_move == WhiteRook || promotion_move == BlackRook)) {
-            return move;
-        }
+            //Promoted to a rook
+            if (promoted_piece == 'r' && (promotion_move == WhiteRook || promotion_move == BlackRook)) {
+                return move;
+            }
 
-        //Promoted to a queen
-        if (promoted_piece == 'q' && (promotion_move == WhiteQueen || promotion_move == BlackQueen)) {
-            return move;
+            //Promoted to a queen
+            if (promoted_piece == 'q' && (promotion_move == WhiteQueen || promotion_move == BlackQueen)) {
+                return move;
+            }
         }
     }
 
     //Somehow we got here :D?
-    throw std::logic_error("ParseMove -> token input is an illegal move!");
+    std::cerr << "ParseMove -> token input is an illegal move!" << std::endl;
+    return MoveList::invalid_move;
 }
 
-void UCI::ParseGo(const std::string line) {
+void UCI::ParseGo(const std::string &line) {
+    //Reset everything
+    Limits::stop_flag = false;
+    Limits::node_count = 0;
+    Limits::searching_flag = true;
+    Limits::use_time_management = false;
+    Limits::start_time = Limits::GetTimeMs();
+    Limits::infinite = false;
 
+    //Initialization
+    std::istringstream iss(line);
+    std::string token;
+
+    int depth = Engine::max_ply;
+    int64_t white_time = -1;
+    int64_t black_time = -1;
+    int64_t white_increment = 0;
+    int64_t black_increment = 0;
+
+    //Remove the 'go' token
+    iss >> token; //token == "go"
+
+    //Loop over the command
+    while (iss >> token) {
+        if (token == "wtime") iss >> white_time;
+        if (token == "btime") iss >> black_time;
+        if (token == "winc") iss >> white_increment;
+        if (token == "binc") iss >> black_increment;
+        if (token == "depth") iss >> depth;
+        if (token == "movetime") {
+            iss >> Limits::time_limit;
+            Limits::use_time_management = true;
+        }
+        if (token == "infinite") Limits::infinite = true;
+    }
+
+    //Calculate move time
+    if (!Limits::infinite && !Limits::use_time_management) {
+        int my_time = chess_board.CurrentSide() == White ? white_time : black_time;
+        int increment_time = chess_board.CurrentSide() == White ? white_increment : black_increment;
+
+        if (my_time != -1) {
+            Limits::use_time_management = true;
+            Limits::time_limit = (my_time / 40) + (increment_time / 2) - 50;    //-50ms is for lag
+
+            //Hard cap at 5s
+            if (Limits::time_limit > 12000) {
+                Limits::time_limit = 12000;
+            }
+
+            //Hard cap at 0.01 ms
+            if (Limits::time_limit < 20) {
+                Limits::time_limit = 20;
+            }
+        }
+    }
+
+    //Start searching best move in a different thread
+    std::thread search_thread([this, depth]() {
+        int best_move = Engine::GetBestMove(this->chess_board, depth);
+
+        std::cout << "bestmove  " << Limits::GetMoveString(best_move) << std::endl;
+
+        Limits::searching_flag = false;
+    } );
+
+    search_thread.detach();
 }
 
 void UCI::PrintBoard() const {

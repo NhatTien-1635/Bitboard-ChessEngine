@@ -332,7 +332,7 @@ int Evaluator::CalculateKingSafetyScore(const ChessBoard &chess_board, int king_
                              ? midgame_vulnerability_penalty[attacking_piece % 6]
                              : endgame_vulnerability_penalty[attacking_piece % 6];
             if (attack & vulnerable_bitboard) {
-                weight *= 2;
+                weight *= 1.5;
             }
             total_score -= weight;
         }
