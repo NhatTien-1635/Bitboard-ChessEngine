@@ -51,30 +51,30 @@ private:
 
 private:
     //Configuration for evaluation
-    static constexpr int midgame_double_pawn_penalty = -10;
-    static constexpr int midgame_isolated_pawn_penalty = -15;
-    static constexpr int midgame_passed_pawn_bonus[8] = {0, 5, 10, 20, 40, 70, 120, 250};
+    static constexpr int midgame_double_pawn_penalty = -30;
+    static constexpr int midgame_isolated_pawn_penalty = -40;
+    static constexpr int midgame_passed_pawn_bonus[8] = {0, 10, 25, 50, 80, 120, 180, 300};
 
-    static constexpr int endgame_double_pawn_penalty = -25;
-    static constexpr int endgame_isolated_pawn_penalty = -35;
-    static constexpr int endgame_passed_pawn_bonus[8] = {0, 20, 40, 80, 150, 200, 350, 450};
+    static constexpr int endgame_double_pawn_penalty = -40;
+    static constexpr int endgame_isolated_pawn_penalty = -50;
+    static constexpr int endgame_passed_pawn_bonus[8] = {0, 30, 60, 120, 200, 300, 450, 600};
 
-    static constexpr int midgame_semi_open_file_bonus = 10;
-    static constexpr int endgame_semi_open_file_bonus = 20;
+    static constexpr int midgame_semi_open_file_bonus = 25;
+    static constexpr int endgame_semi_open_file_bonus = 40;
 
-    static constexpr int midgame_open_file_bonus = 25;
-    static constexpr int endgame_open_file_bonus = 45;
+    static constexpr int midgame_open_file_bonus = 45;
+    static constexpr int endgame_open_file_bonus = 60;
 
-    static constexpr int midgame_shield_score[6] = {15, 9, 5, 0, -20, 0};
-    static constexpr int endgame_shield_score[6] = {10, 10, 7, 4, 1, 0};
+    static constexpr int midgame_shield_score[6] = {150, 110, 80, 30, -40, -50};
+    static constexpr int endgame_shield_score[6] = {50, 30, 20, 10, 0, 0};
 
-    static constexpr int midgame_vulnerability_penalty[6] = {7, 12, 18, 22, 28, 30};
-    static constexpr int endgame_vulnerability_penalty[6] = {3, 12, 23, 35, 45, 45};
+    static constexpr int midgame_vulnerability_penalty[6] = {60, 100, 160, 190, 230, 150};
+    static constexpr int endgame_vulnerability_penalty[6] = {20, 40, 60, 100, 150, 100};
 
-    static constexpr int king_in_check_penalty = -100;
+    static constexpr int king_in_check_penalty = -200;
 
-    static constexpr double midgame_activity_multiplier = 0.3;
-    static constexpr double endgame_activity_multiplier = 0.65;
+    static constexpr double midgame_activity_multiplier = 0.015;
+    static constexpr double endgame_activity_multiplier = 0.30;
 
     static constexpr int tempo = 10;
 

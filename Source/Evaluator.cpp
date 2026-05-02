@@ -95,7 +95,7 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
 
             Side piece_side = Side(piece / 6);
 
-            //Double pawn check
+            // Double pawn check
             if (piece == WhitePawn) {
                 Bitmap file_map = file_mask[square] & chess_board.GetPieceBitmap(WhitePawn);
                 int pawn_count = file_map.GetBitCount();
@@ -185,9 +185,9 @@ int Evaluator::EvaluatePosition(const ChessBoard &chess_board) {
     }
 
     int midgame_score = midgame[chess_board.CurrentSide()] - midgame[ChessBoard::opponent_side[chess_board.
-                            CurrentSide()]] + tempo;
+                            CurrentSide()]];
     int endgame_score = endgame[chess_board.CurrentSide()] - endgame[ChessBoard::opponent_side[chess_board.
-                            CurrentSide()]] + tempo;
+                            CurrentSide()]];
     if (midgame_phase > 24) {
         midgame_phase = 24;
     }

@@ -16,7 +16,6 @@ void UCI::RunLoop() {
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line.find("quit") != std::string::npos) {
-
             while (Limits::searching_flag) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
@@ -41,12 +40,12 @@ void UCI::ParseCommand(const std::string &line) {
 
     if (line.find("ucinewgame") != std::string::npos) {
         Engine::ClearHashTable();
+        Evaluator::ClearHistoryKillerMoveTable();
         ParsePosition("position startpos");
     }
 
     if (line.find("position") != std::string::npos) {
         ParsePosition(line);
-        chess_board.PrintBoard();
     }
 
     if (line.find("go") != std::string::npos) {
@@ -85,12 +84,15 @@ void UCI::ParsePosition(const std::string &line) {
             chess_board.MakeMove(move);
         }
     }
+
+    chess_board.PrintBoard();
 }
 
 UCI::UCI() {
     InitializeEngine();
     chess_board.ParsePositionFromFEN(FEN_STARTING_POSITION);
 }
+
 UCI::~UCI() {
 }
 
@@ -145,7 +147,7 @@ int UCI::ParseMove(const std::string &token) {
     }
 
     //Somehow we got here :D?
-    std::cerr << "ParseMove -> token input is an illegal move!" << std::endl;
+    std::cerr << "ParseMove -> token '" << token << "' input is an illegal move!" << std::endl;
     return MoveList::invalid_move;
 }
 
@@ -192,7 +194,7 @@ void UCI::ParseGo(const std::string &line) {
 
         if (my_time != -1) {
             Limits::use_time_management = true;
-            Limits::time_limit = (my_time / 40) + (increment_time / 2) - 50;    //-50ms is for lag
+            Limits::time_limit = (my_time / 40) + (increment_time / 2) - 50; //-50ms is for lag
 
             //Hard cap at 5s
             if (Limits::time_limit > 12000) {
@@ -213,7 +215,7 @@ void UCI::ParseGo(const std::string &line) {
         std::cout << "bestmove  " << Limits::GetMoveString(best_move) << std::endl;
 
         Limits::searching_flag = false;
-    } );
+    });
 
     search_thread.detach();
 }

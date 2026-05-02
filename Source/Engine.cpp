@@ -40,17 +40,30 @@ int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
 #ifdef SPEED_TEST
     auto start_time = std::chrono::steady_clock::now();
 #endif
+    best_move = MoveList::invalid_move;
     pv_length = 0;
     Evaluator::ClearHistoryKillerMoveTable();
-
     std::memset(pv_table, 0, sizeof(pv_table));
+
+    // //Fallback just in case time is low and engine doesn't have time to find any move
+    // MoveList root_moves;
+    // chess_board.PopulateMoveList(root_moves);
+    // for (int i = 0; i < root_moves.GetMoveCount(); ++i) {
+    //     int fallback = root_moves.GetMove(i);
+    //     if (chess_board.MakeMove(fallback)) {
+    //         pv_table[0] = fallback;
+    //         chess_board.UnmakeMove(fallback);
+    //         break;
+    //     }
+    // }
+
     for (int current_depth = 1; current_depth <= depth; ++current_depth) {
         int score = Negamax(-Evaluator::infinity_score, Evaluator::infinity_score, chess_board, current_depth, 0);
-        ExtractPV(chess_board, current_depth);
-
         if (Limits::stop_flag) {
             break;
         }
+
+        ExtractPV(chess_board, current_depth);
 
         constexpr int mate_threshold = 49000;
 
@@ -60,11 +73,9 @@ int Engine::GetBestMove(ChessBoard &chess_board, int depth) {
         if (std::abs(score) > mate_threshold) {
             int mate_in_moves = (Evaluator::infinity_score - std::abs(score) + 1) / 2;
             std::cout << " score mate " << ((score > 0) ? mate_in_moves : -mate_in_moves);
-        }
-        else {
+        } else {
             std::cout << " score cp " << score;
         }
-
 
         std::cout << " nodes " << Limits::node_count
                 << " time " << (Limits::GetTimeMs() - Limits::start_time)
@@ -111,6 +122,7 @@ void Engine::PrintScoreMoves(const MoveList &move_list, const ChessBoard &chess_
 }
 
 int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int ply) {
+    ++Limits::node_count;
     if (Limits::ShouldStopSearching()) {
         return 0;
     }
@@ -149,8 +161,6 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
             return QuiescenceSearch(alpha, beta, chess_board, ply);
         }
     }
-
-    ++Limits::node_count;
 
     //Null move pruning
     if (!is_check && depth >= full_depth_move_limit && ply > 0 && (beta - alpha == 1) && chess_board.HasMajorPieceLeft(
@@ -375,11 +385,12 @@ int Engine::Negamax(int alpha, int beta, ChessBoard &chess_board, int depth, int
 }
 
 int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int ply) {
-    if (Limits::ShouldStopSearching()) {
+    ++Limits::node_count;
+    if (best_move != MoveList::invalid_move && Limits::ShouldStopSearching()) {
         return 0;
     }
 
-    if (chess_board.GetHalfClock() >= 100 || chess_board.IsPositionRepeated()) {
+    if (chess_board.GetHalfClock() >= 100) {
         return 0;
     }
 
@@ -412,8 +423,6 @@ int Engine::QuiescenceSearch(int alpha, int beta, ChessBoard &chess_board, int p
         //PV node (move)
         alpha = evaluation;
     }
-
-    ++Limits::node_count;
 
     int score = 0;
     if (tt_move != 0) {
