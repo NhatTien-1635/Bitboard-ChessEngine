@@ -16,6 +16,7 @@ void UCI::RunLoop() {
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line.find("quit") != std::string::npos) {
+            Limits::stop_flag = true;
             while (Limits::searching_flag) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
@@ -28,32 +29,39 @@ void UCI::RunLoop() {
 }
 
 void UCI::ParseCommand(const std::string &line) {
-    if (line.find("uci") != std::string::npos) {
-        std::cout << "id name Bitboard-ChessEngine\n"
-                "id author NhatTien-1635\n"
-                "uciok" << std::endl;
-    }
-
-    if (line.find("isready") != std::string::npos) {
-        std::cout << "readyok" << std::endl;
-    }
-
     if (line.find("ucinewgame") != std::string::npos) {
         Engine::ClearHashTable();
         Evaluator::ClearHistoryKillerMoveTable();
         ParsePosition("position startpos");
+        return;
+    }
+
+    if (line.find("uci") != std::string::npos) {
+        std::cout << "id name PotatoBotNo13\n"
+                "id author NhatTien-1635\n"
+                "uciok" << std::endl;
+        return;
+    }
+
+    if (line.find("isready") != std::string::npos) {
+        std::cout << "readyok" << std::endl;
+        return;
     }
 
     if (line.find("position") != std::string::npos) {
         ParsePosition(line);
+        return;
     }
 
     if (line.find("go") != std::string::npos) {
         ParseGo(line);
+        return;
     }
 
     if (line.find("stop") != std::string::npos) {
         Limits::stop_flag = true;
+        Limits::searching_flag = false;
+        return;
     }
 }
 
@@ -85,7 +93,7 @@ void UCI::ParsePosition(const std::string &line) {
         }
     }
 
-    chess_board.PrintBoard();
+    // chess_board.PrintBoard();
 }
 
 UCI::UCI() {
@@ -197,11 +205,11 @@ void UCI::ParseGo(const std::string &line) {
             Limits::time_limit = (my_time / 40) + (increment_time / 2) - 50; //-50ms is for lag
 
             //Hard cap at 5s
-            if (Limits::time_limit > 12000) {
-                Limits::time_limit = 12000;
+            if (Limits::time_limit > 5000) {
+                Limits::time_limit = 5000;
             }
 
-            //Hard cap at 0.01 ms
+            //Hard cap at 0.02 ms
             if (Limits::time_limit < 20) {
                 Limits::time_limit = 20;
             }
@@ -212,7 +220,25 @@ void UCI::ParseGo(const std::string &line) {
     std::thread search_thread([this, depth]() {
         int best_move = Engine::GetBestMove(this->chess_board, depth);
 
-        std::cout << "bestmove  " << Limits::GetMoveString(best_move) << std::endl;
+        std::string returning_string = "bestmove  " + Limits::GetMoveString(best_move);
+
+        Piece promoted_piece = MoveList::DecodeGetPromotedPiece(best_move);
+        if (promoted_piece != NoPiece) {
+            if (promoted_piece == WhiteKnight || promoted_piece == BlackKnight) {
+                returning_string += "n";
+            }
+            if (promoted_piece == WhiteBishop || promoted_piece == BlackBishop) {
+                returning_string += "b";
+            }
+            if (promoted_piece == WhiteRook || promoted_piece == BlackRook) {
+                returning_string += "r";
+            }
+            if (promoted_piece == WhiteQueen || promoted_piece == BlackQueen) {
+                returning_string += "q";
+            }
+        }
+
+        std::cout << returning_string << std::endl;
 
         Limits::searching_flag = false;
     });
