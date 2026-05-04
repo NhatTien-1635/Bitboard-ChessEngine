@@ -27,7 +27,7 @@ It is playable on a chess GUI like ChessArena or CuteChess, but this engine only
 
 ### Using a chess GUI (Recommended)
 
-1. Download the **bitboard_chess_engine.exe** from the [release page.](https://github.com/NhatTien-1635/Bitboard-ChessEngine/releases/tag/v1.0.0)
+1. Download the **chess_engine.exe** from the [release page.](https://github.com/NhatTien-1635/Bitboard-ChessEngine/releases/tag/v1.0.0)
 2. Install it into your chess GUI like ChessArena or CuteChess.
 3. Have fun! :D
 
